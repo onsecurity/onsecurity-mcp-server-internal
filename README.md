@@ -1,4 +1,4 @@
-# OnSecurity MCP Connector
+# OnSecurity MCP
 
 A Model Context Protocol (MCP) connector for the OnSecurity API that allows Claude to query rounds, findings, and notifications.
 
