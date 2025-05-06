@@ -44,6 +44,17 @@ Once configured, Claude will have access to the following tools:
 - `get-all-findings`(optionally filtered by round_id)
 - `get-all-notifications`: Gets notifications from OnSecurity
 
+#### Example Questions
+- Give me a summary of my most recent pentest/scan.
+- Show me trends across my pentests as a graph.
+- What can I address to make the most impact most quickly on my most recent pentest?
+- I would like summaries for different types of stakeholders on the state of our recent pentest engagemenets - eg high level, technical, managerial etc
+- Do I need to action anything to prevent test getting held up?
+- Are there any new findings?
+
+*Note: It is useful sometimes to configure Claude to "Extended thinking" for some questions.*
+
+
 ## Development
 
 ```bash
