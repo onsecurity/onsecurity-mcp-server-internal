@@ -121,7 +121,7 @@ export interface ApiResponse<T> {
     result: T[];
 }
 
-const ONSECURITY_API_BASE = "https://app.onsecurity.io/api/v2";
+const ONSECURITY_API_BASE = process.env.ONSECURITY_API_BASE;
 const ONSECURITY_API_TOKEN = process.env.ONSECURITY_API_TOKEN;
 const ONSECURITY_CLIENT_ID = Number(process.env.ONSECURITY_CLIENT_ID) as number;
 
