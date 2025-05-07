@@ -8,6 +8,7 @@ startCommand:
     required:
       - apiToken
       - clientId
+      - baseUrl
     properties:
       apiToken:
         type: string
@@ -15,6 +16,7 @@ startCommand:
       clientId:
         type: number
         description: OnSecurity client ID
+      baseUrl: Onsecurity API Base URL(UAT or Prod)
   commandFunction:
     # A JS function that produces the CLI command based on the given config to start the MCP on stdio.
     |-
@@ -24,8 +26,10 @@ startCommand:
       env: {
         ONSECURITY_API_TOKEN: config.apiToken,
         ONSECURITY_CLIENT_ID: config.clientId.toString(),
+        ONSECURITY_API_BASE: config.baseUrl.toString()
       }
     })
   exampleConfig:
     apiToken: YOUR_API_TOKEN
     clientId: 12345
+    baseUrl: https://uat.dev.onsecurity.io/api/v2
