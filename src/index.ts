@@ -103,6 +103,24 @@ export interface NotificationResponse {
     result: NotificationFeature[];
 }
 
+// Define a generic response type for all API responses
+export interface ApiResponse<T> {
+    links: {
+        self: string;
+        first: string;
+        next: string | null;
+        previous: string | null;
+        last: string;
+    };
+    limit: number;
+    sort: string | null;
+    includes: any[];
+    total_results: number;
+    total_pages: number;
+    page: number;
+    result: T[];
+}
+
 const ONSECURITY_API_BASE = "https://app.onsecurity.io/api/v2";
 const ONSECURITY_API_TOKEN = process.env.ONSECURITY_API_TOKEN;
 const ONSECURITY_CLIENT_ID = Number(process.env.ONSECURITY_CLIENT_ID) as number;
@@ -116,9 +134,6 @@ const server = new McpServer({
       tools: {},
     },
   });
-
-// Helper function to add delay between requests
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 // Helper function for making OnSecurity API requests
 export async function makeOnSecurityRequest<T>(url: string): Promise<T | null> {
@@ -138,61 +153,46 @@ export async function makeOnSecurityRequest<T>(url: string): Promise<T | null> {
       console.error("Error making OnSecurity request:", error);
       return null;
     }
-  }
-
-// Generic pagination function for OnSecurity API
-async function fetchAllPages<T, R>(
-  basePath: string,
-  filters: Record<string, string | number>
-): Promise<R[]> {
-  // Array to store all results
-  const allResults: R[] = [];
-  let currentPage = 1;
-  let hasMorePages = true;
-  
-  // Build the filter parameters string
-  const filterParams = Object.entries(filters)
-    .map(([key, value]) => `filter[${key}]=${value}`)
-    .join('&');
-  
-  // Keep fetching until we run out of pages
-  while (hasMorePages) {
-    // Construct URL for current page
-    const pageUrl = `${ONSECURITY_API_BASE}/${basePath}?${filterParams}&page=${currentPage}`;
-    
-    // Add delay after first page to avoid rate limiting
-    if (currentPage > 1) {
-      await delay(3000);
-    }
-    
-    const pageResponse = await makeOnSecurityRequest<T>(pageUrl);
-    
-    if (!pageResponse) {
-      break;
-    }
-    
-    // Cast pageResponse to access page properties
-    const typedResponse = pageResponse as unknown as { 
-      result: R[]; 
-      page: number; 
-      total_pages: number;
-    };
-    
-    const pageResults = typedResponse.result || [];
-    allResults.push(...pageResults);
-    
-    // Check if there are more pages by examining total_pages and current page
-    if (typedResponse.page < typedResponse.total_pages) {
-      currentPage++;
-    } else {
-      hasMorePages = false;
-    }
-  }
-  
-  return allResults;
 }
 
-//format Round data
+// New function to fetch a single page with all query parameter options
+async function fetchPage<T>(
+  basePath: string,
+  page: number = 1,
+  filters: Record<string, string | number> = {},
+  sort?: string,
+  includes?: string,
+  fields?: string,
+  limit?: number
+): Promise<T | null> {
+  // Build query parameters
+  const queryParams = new URLSearchParams();
+  
+  // Add page parameter
+  queryParams.append('page', page.toString());
+  
+  // Add limit if provided
+  if (limit) queryParams.append('limit', limit.toString());
+  
+  // Add sort if provided
+  if (sort) queryParams.append('sort', sort);
+  
+  // Add includes if provided
+  if (includes) queryParams.append('include', includes);
+  
+  // Add fields if provided
+  if (fields) queryParams.append('fields', fields);
+  
+  // Add filters
+  Object.entries(filters).forEach(([key, value]) => {
+    queryParams.append(`filter[${key}]`, value.toString());
+  });
+  
+  const url = `${ONSECURITY_API_BASE}/${basePath}?${queryParams.toString()}`;
+  return await makeOnSecurityRequest<T>(url);
+}
+
+// Format Round data
 function formatRound(round: RoundFeature): string {
     return [
         `Round ID: ${round.id}`,
@@ -209,7 +209,7 @@ function formatRound(round: RoundFeature): string {
     ].join('\n');
 }
 
-//format Finding data
+// Format Finding data
 function formatFinding(finding: FindingFeature): string {
     return [
         `Finding ID: ${finding.id}`,
@@ -232,7 +232,7 @@ function formatFinding(finding: FindingFeature): string {
     ].join('\n');
 }
 
-//format Notification data
+// Format Notification data
 function formatNotification(notification: NotificationFeature): string {
     return [
         `Content: ${notification.heading}`,
@@ -242,19 +242,83 @@ function formatNotification(notification: NotificationFeature): string {
     ].join('\n');
 }
 
-// Get all rounds
+// Format pagination info
+function formatPaginationInfo<T>(response: ApiResponse<T>): string {
+    return [
+        `Page ${response.page} of ${response.total_pages}`,
+        `Total Results: ${response.total_results}`,
+        `Items Per Page: ${response.limit}`,
+        `Next Page Available: ${response.links.next ? 'Yes' : 'No'}`,
+        `Previous Page Available: ${response.links.previous ? 'Yes' : 'No'}`,
+        `--------------------------------`,
+    ].join('\n');
+}
+
+// Define a schema for advanced filters that can be passed directly to the tool
+const FilterSchema = z.record(z.string(), z.union([z.string(), z.number()])).optional()
+    .describe("Optional additional filters in format {field: value} or {field-operator: value} where operator can be mt (more than), mte (more than equal), lt (less than), lte (less than equal), eq (equals, default)");
+
+// Get all rounds with pagination and advanced filtering
 server.tool(
     "get-all-rounds",
     "Get all rounds data from OnSecurity from client in a high level summary. When replying, only include the summary, not the raw data and be sure to present the data in a way that is easy to understand for the client. Rounds can be pentest rounds, scan rounds, or radar rounds.",
-    async () => {
-        const filters = { 'client_id-eq': ONSECURITY_CLIENT_ID };
-        const allRounds = await fetchAllPages<RoundResponse, RoundFeature>(
+    {
+        round_type: z.number().optional().describe("Optional round type to filter rounds, 1 = pentest round, 3 = scan round"),
+        sort: z.string().optional().describe("Optional sort parameter (e.g. 'start_date-desc' for newest first)"),
+        limit: z.number().optional().describe("Optional limit parameter (e.g. 10 for 10 rounds per page)"),
+        page: z.number().optional().describe("Optional page number to fetch (default: 1)"),
+        includes: z.string().optional().describe("Optional related data to include (e.g. 'findings' or 'findings.targets')"),
+        fields: z.string().optional().describe("Optional comma-separated list of fields to return (e.g. 'id,name,started')"),
+        filters: FilterSchema,
+    },
+    async (params) => {
+        const filters: Record<string, string | number> = { 'client_id-eq': ONSECURITY_CLIENT_ID };
+        
+        // Add additional filters if provided
+        if (params.filters) {
+            Object.entries(params.filters).forEach(([key, value]) => {
+                filters[key] = value;
+            });
+        }
+        
+        // Add round_type filter if provided
+        if (params.round_type) {
+            filters['round_type_id-eq'] = params.round_type;
+        }
+        
+        const response = await fetchPage<ApiResponse<RoundFeature>>(
             'rounds', 
-            filters
+            params.page || 1, 
+            filters, 
+            params.sort, 
+            params.includes, 
+            params.fields, 
+            params.limit
         );
         
-        const formattedRounds = allRounds.map(formatRound);
-        const responseText = `Pagination summary: Retrieved ${allRounds.length} rounds.\n\nHere are the rounds data for the client: ${formattedRounds.join('\n\n')}`;
+        if (!response) {
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: "Error fetching rounds data. Please try again."
+                    }
+                ]
+            };
+        }
+        
+        const paginationInfo = formatPaginationInfo(response);
+        const formattedRounds = response.result.map(formatRound);
+        
+        const responseText = [
+            "# Rounds Summary",
+            "",
+            "## Pagination Information",
+            paginationInfo,
+            "",
+            "## Rounds Data",
+            ...formattedRounds
+        ].join('\n');
 
         return {
             content: [
@@ -263,32 +327,77 @@ server.tool(
                     text: responseText
                 }
             ]
-        }
+        };
     }
 );
 
-// Get all Findings
+// Get all Findings with pagination and advanced filtering
 server.tool(
     "get-all-findings",
     "Get all findings data from OnSecurity from client in a high level summary, only include the summary, not the raw data and be sure to present the data in a way that is easy to understand for the client. You can optionally filter findings by round_id.",
     {
-        round_id: z.number().optional().describe("Optional round ID to filter findings")
+        round_id: z.number().optional().describe("Optional round ID to filter findings"),
+        round_type: z.number().optional().describe("Optional round type to filter rounds, 1 = pentest round, 3 = scan round"),
+        sort: z.string().optional().describe("Optional sort parameter (e.g. 'cvss_score-desc' for highest severity first)"),
+        limit: z.number().optional().describe("Optional limit parameter (e.g. 10 for 10 findings per page)"),
+        page: z.number().optional().describe("Optional page number to fetch (default: 1)"),
+        includes: z.string().optional().describe("Optional related data to include (e.g. 'targets' or 'targets.target_components')"),
+        fields: z.string().optional().describe("Optional comma-separated list of fields to return (e.g. 'id,name,cvss.score')"),
+        filters: FilterSchema,
     },
     async (params) => {
         const filters: Record<string, string | number> = { 'client_id-eq': ONSECURITY_CLIENT_ID };
+        
+        // Add additional filters if provided
+        if (params.filters) {
+            Object.entries(params.filters).forEach(([key, value]) => {
+                filters[key] = value;
+            });
+        }
         
         // Add round_id filter if provided
         if (params.round_id) {
             filters['round_id-eq'] = params.round_id;
         }
         
-        const allFindings = await fetchAllPages<FindingResponse, FindingFeature>(
+        // Add round_type filter if provided
+        if (params.round_type) {
+            filters['round_type_id-eq'] = params.round_type;
+        }
+        
+        const response = await fetchPage<ApiResponse<FindingFeature>>(
             'findings', 
-            filters
+            params.page || 1, 
+            filters, 
+            params.sort, 
+            params.includes, 
+            params.fields, 
+            params.limit
         );
         
-        const formattedFindings = allFindings.map(formatFinding);
-        const responseText = `Pagination summary: Retrieved ${allFindings.length} findings.\n\nHere are the findings data for the client: ${formattedFindings.join('\n\n')}`;
+        if (!response) {
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: "Error fetching findings data. Please try again."
+                    }
+                ]
+            };
+        }
+        
+        const paginationInfo = formatPaginationInfo(response);
+        const formattedFindings = response.result.map(formatFinding);
+        
+        const responseText = [
+            "# Findings Summary",
+            "",
+            "## Pagination Information",
+            paginationInfo,
+            "",
+            "## Findings Data",
+            ...formattedFindings
+        ].join('\n');
 
         return {
             content: [
@@ -297,23 +406,65 @@ server.tool(
                     text: responseText
                 }
             ]
-        }
+        };
     }
 );
 
-// Get all notifications
+// Get all notifications with pagination and advanced filtering
 server.tool(
     "get-all-notifications",
     "Get all notifications data from OnSecurity from client in a high level summary, only include the summary, not the raw data and be sure to present the data in a way that is easy to understand for the client.",
-    async () => {
-        const filters = { 'client_id-eq': ONSECURITY_CLIENT_ID };
-        const allNotifications = await fetchAllPages<NotificationResponse, NotificationFeature>(
+    {
+        sort: z.string().optional().describe("Optional sort parameter (e.g. 'created_at-desc' for newest first)"),
+        limit: z.number().optional().describe("Optional limit parameter (e.g. 10 for 10 notifications per page)"),
+        page: z.number().optional().describe("Optional page number to fetch (default: 1)"),
+        includes: z.string().optional().describe("Optional related data to include"),
+        fields: z.string().optional().describe("Optional comma-separated list of fields to return (e.g. 'heading,created_at')"),
+        filters: FilterSchema,
+    },
+    async (params) => {
+        const filters: Record<string, string | number> = { 'client_id-eq': ONSECURITY_CLIENT_ID };
+        
+        // Add additional filters if provided
+        if (params.filters) {
+            Object.entries(params.filters).forEach(([key, value]) => {
+                filters[key] = value;
+            });
+        }
+        
+        const response = await fetchPage<ApiResponse<NotificationFeature>>(
             'notifications', 
-            filters
+            params.page || 1, 
+            filters, 
+            params.sort, 
+            params.includes, 
+            params.fields, 
+            params.limit
         );
         
-        const formattedNotifications = allNotifications.map(formatNotification);
-        const responseText = `Pagination summary: Retrieved ${allNotifications.length} notifications.\n\nHere are the notifications data for the client: ${formattedNotifications.join('\n\n')}`;
+        if (!response) {
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: "Error fetching notifications data. Please try again."
+                    }
+                ]
+            };
+        }
+        
+        const paginationInfo = formatPaginationInfo(response);
+        const formattedNotifications = response.result.map(formatNotification);
+        
+        const responseText = [
+            "# Notifications Summary",
+            "",
+            "## Pagination Information",
+            paginationInfo,
+            "",
+            "## Notifications Data",
+            ...formattedNotifications
+        ].join('\n');
 
         return {
             content: [
@@ -322,7 +473,7 @@ server.tool(
                     text: responseText
                 }
             ]
-        }
+        };
     }
 );
 
