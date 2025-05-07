@@ -1,9 +1,20 @@
 # OnSecurity MCP
 
+[![smithery badge](https://smithery.ai/badge/@onsecurity/mcp-onsecurity)](https://smithery.ai/server/@onsecurity/mcp-onsecurity)
+
 A Model Context Protocol (MCP) connector for the OnSecurity API that allows Claude to query rounds, findings, and notifications.
 
 ## Installation
 
+### Installing via Smithery
+
+To install mcp-onsecurity for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@onsecurity/mcp-onsecurity):
+
+```bash
+npx -y @smithery/cli install @onsecurity/mcp-onsecurity --client claude
+```
+
+### Manual Installation
 ```bash
 git clone https://github.com/onsecurity/onsecurity-mcp-server.git
 cd onsecurity-mcp-server
