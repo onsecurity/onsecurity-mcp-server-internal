@@ -52,9 +52,9 @@ After adding this configuration, restart Claude Desktop, and you'll be able to a
 
 Once configured, Claude will have access to the following tools:
 
-- `get-all-rounds`Fetches all rounds
-- `get-all-findings`(optionally filtered by round_id)
-- `get-all-notifications`: Gets notifications from OnSecurity
+- `get-rounds`
+- `get-all-findings`
+- `get-all-notifications`
 
 #### Example Questions
 - Give me a summary of my most recent pentest/scan.
@@ -65,14 +65,3 @@ Once configured, Claude will have access to the following tools:
 - Are there any new findings?
 
 *Note: It is useful sometimes to configure Claude to "Extended thinking" for some questions.*
-
-
-## Development
-
-```bash
-# Install dependencies
-npm install
-
-# Build the project
-npm run build
-```
