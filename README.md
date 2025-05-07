@@ -26,7 +26,7 @@ npm run build
 
 To use this MCP server with Claude Desktop, you need to add an entry to your Claude Desktop configuration file
 
-Add the following to your configuration file (adjust the paths as needed):
+Add the following to your configuration file (adjust the paths as needed) and choose UAT or Prod:
 
 ```json
 {
@@ -38,7 +38,8 @@ Add the following to your configuration file (adjust the paths as needed):
       ],
       "env": {
         "ONSECURITY_API_TOKEN": "your_api_token",
-        "ONSECURITY_CLIENT_ID": "your_client_id"
+        "ONSECURITY_CLIENT_ID": "your_client_id",
+        "ONSECURITY_API_BASE": "https://uat.dev.onsecurity.io/api/v2 OR https://app.onsecurity.io/api/v2"
       }
     }
   }
