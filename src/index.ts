@@ -260,7 +260,7 @@ const FilterSchema = z.record(z.string(), z.union([z.string(), z.number()])).opt
 
 // Get all rounds with pagination and advanced filtering
 server.tool(
-    "get-all-rounds",
+    "get-rounds",
     "Get all rounds data from OnSecurity from client in a high level summary. When replying, only include the summary, not the raw data and be sure to present the data in a way that is easy to understand for the client. Rounds can be pentest rounds, scan rounds, or radar rounds.",
     {
         round_type: z.number().optional().describe("Optional round type to filter rounds, 1 = pentest round, 3 = scan round"),
@@ -333,7 +333,7 @@ server.tool(
 
 // Get all Findings with pagination and advanced filtering
 server.tool(
-    "get-all-findings",
+    "get-findings",
     "Get all findings data from OnSecurity from client in a high level summary, only include the summary, not the raw data and be sure to present the data in a way that is easy to understand for the client. You can optionally filter findings by round_id.",
     {
         round_id: z.number().optional().describe("Optional round ID to filter findings"),
@@ -412,7 +412,7 @@ server.tool(
 
 // Get all notifications with pagination and advanced filtering
 server.tool(
-    "get-all-notifications",
+    "get-notifications",
     "Get all notifications data from OnSecurity from client in a high level summary, only include the summary, not the raw data and be sure to present the data in a way that is easy to understand for the client.",
     {
         sort: z.string().optional().describe("Optional sort parameter (e.g. 'created_at-desc' for newest first)"),
