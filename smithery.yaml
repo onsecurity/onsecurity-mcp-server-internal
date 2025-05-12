@@ -1,0 +1,21 @@
+# MCP Server Configuration for OnSecurity
+startCommand:
+  type: http
+  configSchema:
+    type: object
+    required: ["ONSECURITY_API_TOKEN", "ONSECURITY_API_BASE"]
+    properties:
+      ONSECURITY_API_TOKEN:
+        type: string
+        title: "OnSecurity API Token"
+        description: "Your OnSecurity API token for authentication"
+      ONSECURITY_API_BASE:
+        type: string
+        title: "OnSecurity API Base URL"
+        description: "Base URL for the OnSecurity API (e.g., https://app.onsecurity.io/api/v2)"
+        default: "https://app.onsecurity.io/api/v2"
+
+# Build configuration
+build:
+  dockerfile: Dockerfile
+  dockerBuildPath: . 
