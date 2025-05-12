@@ -1,16 +1,3 @@
-# OnSecurity MCP
-
-A Model Context Protocol (MCP) connector for the OnSecurity API that allows Claude to query rounds, findings, and notifications.
-
-## Installation
-
-```bash
-git clone https://github.com/onsecurity/onsecurity-mcp-server.git
-cd onsecurity-mcp-server
-npm install
-npm run build
-```
-
 ### Claude Desktop Configuration
 
 To use this MCP server with Claude Desktop, you need to add an entry to your Claude Desktop configuration file
@@ -42,8 +29,9 @@ After adding this configuration, restart Claude Desktop, and you'll be able to a
 Once configured, Claude will have access to the following tools:
 
 - `get-rounds`
-- `get-all-findings`
-- `get-all-notifications`
+- `get-findings`
+- `get-notifications`
+- `get-prerequisites`
 
 #### Example Questions
 - Give me a summary of my most recent pentest/scan.
