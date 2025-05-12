@@ -14,8 +14,7 @@ Add the following to your configuration file (adjust the paths as needed) and ch
       ],
       "env": {
         "ONSECURITY_API_TOKEN": "your_api_token",
-        "ONSECURITY_CLIENT_ID": "your_client_id",
-        "ONSECURITY_API_BASE": "https://uat.dev.onsecurity.io/api/v2 OR https://app.onsecurity.io/api/v2"
+        "ONSECURITY_API_BASE": "https://app.onsecurity.io/api/v2"
       }
     }
   }
