@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import 'dotenv/config';
+import { setupHttpServer } from "./server.js";
 
 // OnSecurity API Types
 export interface RoundFeature {
@@ -583,8 +584,28 @@ server.tool(
 // Start the server
 async function main() {
     try {
-        const transport = new StdioServerTransport();
-        await server.connect(transport);
+        // Check if running in HTTP mode
+        const useHttp = process.env.MCP_TRANSPORT === 'http';
+        
+        if (useHttp) {
+            // Start the HTTP server
+            console.log("Starting MCP server with Streamable HTTP transport");
+            const httpServer = setupHttpServer(server);
+            await httpServer.start();
+            
+            // Handle graceful shutdown
+            process.on('SIGINT', async () => {
+                console.log('Shutting down server...');
+                await httpServer.close();
+                process.exit(0);
+            });
+        } else {
+            // Use traditional StdioServerTransport (for compatibility)
+            // Log to stderr instead of stdout to avoid corrupting the JSON-RPC messages
+            console.error("Starting MCP server with Stdio transport");
+            const transport = new StdioServerTransport();
+            await server.connect(transport);
+        }
     } catch (error) {
         console.error("Fatal error in main():", error);
         process.exit(1);
