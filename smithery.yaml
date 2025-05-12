@@ -1,21 +1,36 @@
-# MCP Server Configuration for OnSecurity
-startCommand:
-  type: http
-  configSchema:
-    type: object
-    required: ["ONSECURITY_API_TOKEN", "ONSECURITY_API_BASE"]
-    properties:
-      ONSECURITY_API_TOKEN:
-        type: string
-        title: "OnSecurity API Token"
-        description: "Your OnSecurity API token for authentication"
-      ONSECURITY_API_BASE:
-        type: string
-        title: "OnSecurity API Base URL"
-        description: "Base URL for the OnSecurity API (e.g., https://app.onsecurity.io/api/v2)"
-        default: "https://app.onsecurity.io/api/v2"
+# Smithery configuration file: https://smithery.ai/docs/build/project-config
 
-# Build configuration
+startCommand:
+  type: stdio
+  configSchema:
+    # JSON Schema defining the configuration options for the MCP.
+    type: object
+    required:
+      - apiToken
+      - apiBase
+    properties:
+      apiToken:
+        type: string
+        description: OnSecurity API token
+      apiBase:
+        type: string
+        description: OnSecurity API base URL
+        default: "https://app.onsecurity.io/api/v2"
+  commandFunction:
+    # A JS function that produces the CLI command based on the given config to start the MCP on stdio.
+    |-
+    (config) => ({
+      command: 'node',
+      args: ['build/index.js'],
+      env: {
+        ONSECURITY_API_TOKEN: config.apiToken,
+        ONSECURITY_API_BASE: config.apiBase,
+      }
+    })
+  exampleConfig:
+    apiToken: YOUR_API_TOKEN
+    apiBase: https://app.onsecurity.io/api/v2
+
 build:
   dockerfile: Dockerfile
   dockerBuildPath: . 
