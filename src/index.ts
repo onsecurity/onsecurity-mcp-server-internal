@@ -103,6 +103,18 @@ export interface NotificationResponse {
     result: NotificationFeature[];
 }
 
+// Interface for Prerequisite data
+export interface PrerequisiteFeature {
+    id: number;
+    round_id: number;
+    name?: string;
+    description?: string;
+    required?: boolean;
+    status?: string;
+    created_at?: string;
+    updated_at?: string;
+}
+
 // Define a generic response type for all API responses
 export interface ApiResponse<T> {
     links: {
@@ -163,7 +175,8 @@ async function fetchPage<T>(
   sort?: string,
   includes?: string,
   fields?: string,
-  limit?: number
+  limit?: number,
+  search?: string
 ): Promise<T | null> {
   // Build query parameters
   const queryParams = new URLSearchParams();
@@ -182,6 +195,9 @@ async function fetchPage<T>(
   
   // Add fields if provided
   if (fields) queryParams.append('fields', fields);
+  
+  // Add search if provided
+  if (search) queryParams.append('search', search);
   
   // Add filters
   Object.entries(filters).forEach(([key, value]) => {
@@ -242,6 +258,21 @@ function formatNotification(notification: NotificationFeature): string {
     ].join('\n');
 }
 
+// Format Prerequisite data
+function formatPrerequisite(prerequisite: PrerequisiteFeature): string {
+    return [
+        `Prerequisite ID: ${prerequisite.id}`,
+        `Round ID: ${prerequisite.round_id}`,
+        `Name: ${prerequisite.name || "N/A"}`,
+        `Description: ${prerequisite.description || "N/A"}`,
+        `Required: ${prerequisite.required !== undefined ? prerequisite.required : "N/A"}`,
+        `Status: ${prerequisite.status || "N/A"}`,
+        `Created At: ${prerequisite.created_at || "N/A"}`,
+        `Updated At: ${prerequisite.updated_at || "N/A"}`,
+        `--------------------------------`,
+    ].join('\n');
+}
+
 // Format pagination info
 function formatPaginationInfo<T>(response: ApiResponse<T>): string {
     return [
@@ -264,12 +295,13 @@ server.tool(
     "Get all rounds data from OnSecurity from client in a high level summary. When replying, only include the summary, not the raw data and be sure to present the data in a way that is easy to understand for the client. Rounds can be pentest rounds, scan rounds, or radar rounds.",
     {
         round_type: z.number().optional().describe("Optional round type to filter rounds, 1 = pentest round, 3 = scan round"),
-        sort: z.string().optional().describe("Optional sort parameter (e.g. 'start_date-desc' for newest first)"),
-        limit: z.number().optional().describe("Optional limit parameter (e.g. 10 for 10 rounds per page)"),
+        sort: z.string().optional().describe("Optional sort parameter in format 'field-direction'. Available values: name-asc, start_date-asc, end_date-asc, authorisation_date-asc, hours_estimate-asc, created_at-asc, updated_at-asc, name-desc, start_date-desc, end_date-desc, authorisation_date-desc, hours_estimate-desc, created_at-desc, updated_at-desc. Default: id-asc"),
+        limit: z.number().optional().describe("Optional limit parameter for max results per page (e.g. 15)"),
         page: z.number().optional().describe("Optional page number to fetch (default: 1)"),
-        includes: z.string().optional().describe("Optional related data to include (e.g. 'findings' or 'findings.targets')"),
-        fields: z.string().optional().describe("Optional comma-separated list of fields to return (e.g. 'id,name,started')"),
+        includes: z.string().optional().describe("Optional related data to include as comma-separated values (e.g. 'client,findings,targets')"),
+        fields: z.string().optional().describe("Optional comma-separated list of fields to return (e.g. 'id,name,started'). Use * as wildcard."),
         filters: FilterSchema,
+        search: z.string().optional().describe("Optional search term to filter rounds by matching text")
     },
     async (params) => {
         const filters: Record<string, string | number> = { 'client_id-eq': ONSECURITY_CLIENT_ID };
@@ -293,7 +325,8 @@ server.tool(
             params.sort, 
             params.includes, 
             params.fields, 
-            params.limit
+            params.limit,
+            params.search
         );
         
         if (!response) {
@@ -338,12 +371,13 @@ server.tool(
     {
         round_id: z.number().optional().describe("Optional round ID to filter findings"),
         round_type: z.number().optional().describe("Optional round type to filter rounds, 1 = pentest round, 3 = scan round"),
-        sort: z.string().optional().describe("Optional sort parameter (e.g. 'cvss_score-desc' for highest severity first)"),
-        limit: z.number().optional().describe("Optional limit parameter (e.g. 10 for 10 findings per page)"),
+        sort: z.string().optional().describe("Optional sort parameter in format 'field-direction'. Available values: name-asc, round_id-asc, created_at-asc, updated_at-asc, name-desc, round_id-desc, created_at-desc, updated_at-desc. Default: id-asc"),
+        limit: z.number().optional().describe("Optional limit parameter for max results per page (e.g. 15)"),
         page: z.number().optional().describe("Optional page number to fetch (default: 1)"),
-        includes: z.string().optional().describe("Optional related data to include (e.g. 'targets' or 'targets.target_components')"),
-        fields: z.string().optional().describe("Optional comma-separated list of fields to return (e.g. 'id,name,cvss.score')"),
+        includes: z.string().optional().describe("Optional related data to include as comma-separated values (e.g. 'client,round,target_components')"),
+        fields: z.string().optional().describe("Optional comma-separated list of fields to return (e.g. 'id,name'). Use * as wildcard."),
         filters: FilterSchema,
+        search: z.string().optional().describe("Optional search term to filter findings by matching text")
     },
     async (params) => {
         const filters: Record<string, string | number> = { 'client_id-eq': ONSECURITY_CLIENT_ID };
@@ -372,7 +406,8 @@ server.tool(
             params.sort, 
             params.includes, 
             params.fields, 
-            params.limit
+            params.limit,
+            params.search
         );
         
         if (!response) {
@@ -464,6 +499,75 @@ server.tool(
             "",
             "## Notifications Data",
             ...formattedNotifications
+        ].join('\n');
+
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: responseText
+                }
+            ]
+        };
+    }
+);
+
+// Get all prerequisites with pagination and filtering
+server.tool(
+    "get-prerequisites",
+    "Get all prerequisites data from OnSecurity for a specific round. Prerequisites are requirements that need to be fulfilled before a security assessment can begin.",
+    {
+        round_id: z.number().describe("Required round ID to filter prerequisites"),
+        sort: z.string().optional().describe("Optional sort parameter in format 'field-direction'. Available values: name-asc, name-desc, created_at-asc, created_at-desc, updated_at-asc, updated_at-desc. Default: id-asc"),
+        limit: z.number().optional().describe("Optional limit parameter for max results per page (e.g. 15)"),
+        page: z.number().optional().describe("Optional page number to fetch (default: 1)"),
+        fields: z.string().optional().describe("Optional comma-separated list of fields to return (e.g. 'id,name,status'). Use * as wildcard."),
+        filters: FilterSchema,
+    },
+    async (params) => {
+        const filters: Record<string, string | number> = {
+            'round_id-eq': params.round_id
+        };
+        
+        // Add additional filters if provided
+        if (params.filters) {
+            Object.entries(params.filters).forEach(([key, value]) => {
+                filters[key] = value;
+            });
+        }
+        
+        const response = await fetchPage<ApiResponse<PrerequisiteFeature>>(
+            'prerequisites', 
+            params.page || 1, 
+            filters, 
+            params.sort, 
+            undefined, // includes not mentioned in the docs
+            params.fields, 
+            params.limit
+        );
+        
+        if (!response) {
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: "Error fetching prerequisites data. Please try again."
+                    }
+                ]
+            };
+        }
+        
+        const paginationInfo = formatPaginationInfo(response);
+        const formattedPrerequisites = response.result.map(formatPrerequisite);
+        
+        const responseText = [
+            "# Prerequisites Summary",
+            "",
+            "## Pagination Information",
+            paginationInfo,
+            "",
+            "## Prerequisites Data",
+            ...formattedPrerequisites
         ].join('\n');
 
         return {
