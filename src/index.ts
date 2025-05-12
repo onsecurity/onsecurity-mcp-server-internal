@@ -304,7 +304,7 @@ server.tool(
         search: z.string().optional().describe("Optional search term to filter rounds by matching text")
     },
     async (params) => {
-        const filters: Record<string, string | number> = { 'client_id-eq': ONSECURITY_CLIENT_ID };
+        const filters: Record<string, string | number> = {};
         
         // Add additional filters if provided
         if (params.filters) {
@@ -380,7 +380,7 @@ server.tool(
         search: z.string().optional().describe("Optional search term to filter findings by matching text")
     },
     async (params) => {
-        const filters: Record<string, string | number> = { 'client_id-eq': ONSECURITY_CLIENT_ID };
+        const filters: Record<string, string | number> = {};
         
         // Add additional filters if provided
         if (params.filters) {
@@ -458,7 +458,7 @@ server.tool(
         filters: FilterSchema,
     },
     async (params) => {
-        const filters: Record<string, string | number> = { 'client_id-eq': ONSECURITY_CLIENT_ID };
+        const filters: Record<string, string | number> = {};
         
         // Add additional filters if provided
         if (params.filters) {
