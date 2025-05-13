@@ -1,4 +1,26 @@
-### Claude Desktop Configuration
+# OnSecurity MCP
+
+[![smithery badge](https://smithery.ai/server/@onsecurity/onsecurity-mcp-server/)](https://smithery.ai/server/@onsecurity/onsecurity-mcp-server/)
+
+A Model Context Protocol (MCP) server for the OnSecurity API that allows Claude to query rounds, findings, prerequisites and notifications.
+
+## Installation
+
+### Installing via Smithery
+
+To install the server for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@onsecurity/onsecurity-mcp-server):
+
+```bash
+npx -y @smithery/cli install @onsecurity/onsecurity-mcp-server --client claude
+```
+
+### Manual Installation
+```bash
+git clone https://github.com/onsecurity/onsecurity-mcp-server.git
+cd onsecurity-mcp-server
+
+
+### Manual Installation
 
 To use this MCP server with Claude Desktop, you need to add an entry to your Claude Desktop configuration file
 
