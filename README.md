@@ -1,7 +1,5 @@
 # OnSecurity MCP
 
-[![smithery badge](https://smithery.ai/server/@onsecurity/onsecurity-mcp-server/)](https://smithery.ai/server/@onsecurity/onsecurity-mcp-server/)
-
 A Model Context Protocol (MCP) server for the OnSecurity API that allows Claude to query rounds, findings, prerequisites and notifications.
 
 ## Installation
