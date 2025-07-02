@@ -115,6 +115,56 @@ export interface PrerequisiteFeature {
     updated_at?: string;
 }
 
+// Interface for Block data
+export interface BlockFeature {
+    id: number;
+    round_type_id: number;
+    name: string;
+    executive_description?: string;
+    executive_description_html?: string;
+    executive_description_md?: string;
+    executive_risk?: string;
+    executive_risk_html?: string;
+    executive_risk_md?: string;
+    executive_recommendation?: string;
+    executive_recommendation_html?: string;
+    executive_recommendation_md?: string;
+    description?: string;
+    description_html?: string;
+    description_md?: string;
+    evidence?: string;
+    evidence_html?: string;
+    evidence_md?: string;
+    recommendation?: string;
+    recommendation_html?: string;
+    recommendation_md?: string;
+    remediation_complexity?: number;
+    approved: boolean;
+    automation_approved: boolean;
+    used_count: number;
+    ratings?: {
+        cvss?: {
+            score?: number;
+            version?: number[];
+            v2?: Record<string, number[]>;
+            v3?: Record<string, number[]>;
+        };
+    };
+    cvss?: Record<string, any>;
+    created_at: string;
+    updated_at: string;
+    block_business_risks?: any;
+    block_field_variants?: any;
+    block_imports?: any;
+    block_references?: any;
+    block_remediations?: any;
+    block_target_types?: any;
+    block_variables?: any;
+    business_risks?: any;
+    remediations?: any;
+    revisions?: any;
+}
+
 // Define a generic response type for all API responses
 export interface ApiResponse<T> {
     links: {
@@ -272,6 +322,29 @@ function formatPrerequisite(prerequisite: PrerequisiteFeature): string {
     ].join('\n');
 }
 
+// Format Block data
+function formatBlock(block: BlockFeature): string {
+    return [
+        `Block ID: ${block.id}`,
+        `Name: ${block.name}`,
+        `Round Type ID: ${block.round_type_id}`,
+        `Approved: ${block.approved}`,
+        `Automation Approved: ${block.automation_approved}`,
+        `Used Count: ${block.used_count}`,
+        `Remediation Complexity: ${block.remediation_complexity || "N/A"}`,
+        `CVSS Score: ${block.ratings?.cvss?.score || block.cvss?.score || "N/A"}`,
+        `Executive Description: ${block.executive_description ? block.executive_description.substring(0, 200) + "..." : "N/A"}`,
+        `Executive Risk: ${block.executive_risk ? block.executive_risk.substring(0, 200) + "..." : "N/A"}`,
+        `Executive Recommendation: ${block.executive_recommendation ? block.executive_recommendation.substring(0, 200) + "..." : "N/A"}`,
+        `Description: ${block.description ? block.description.substring(0, 200) + "..." : "N/A"}`,
+        `Evidence: ${block.evidence ? block.evidence.substring(0, 200) + "..." : "N/A"}`,
+        `Recommendation: ${block.recommendation ? block.recommendation.substring(0, 200) + "..." : "N/A"}`,
+        `Created At: ${block.created_at}`,
+        `Updated At: ${block.updated_at}`,
+        `--------------------------------`,
+    ].join('\n');
+}
+
 // Format pagination info
 function formatPaginationInfo<T>(response: ApiResponse<T>): string {
     return [
@@ -366,7 +439,7 @@ server.tool(
 // Get all Findings with pagination and advanced filtering
 server.tool(
     "get-findings",
-    "Get all findings data from OnSecurity from client in a high level summary, only include the summary, not the raw data and be sure to present the data in a way that is easy to understand for the client. You can optionally filter findings by round_id.",
+    "Get all findings data from OnSecurity from client in a high level summary, only include the summary, not the raw data and be sure to present the data in a way that is easy to understand for the client. You can optionally filter findings by round_id. Note that there is no way to find the most common findings using this endpoint. You must use the get-blocks endpoint to find the most common findings.",
     {
         round_id: z.number().optional().describe("Optional round ID to filter findings"),
         round_type: z.number().optional().describe("Optional round type to filter rounds, 1 = pentest round, 3 = scan round"),
@@ -567,6 +640,93 @@ server.tool(
             "",
             "## Prerequisites Data",
             ...formattedPrerequisites
+        ].join('\n');
+
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: responseText
+                }
+            ]
+        };
+    }
+);
+
+// Get all blocks with pagination and advanced filtering
+server.tool(
+    "get-blocks",
+    "Get all blocks data from OnSecurity. Blocks are reusable security finding templates that can be used across different assessments. They contain standardized vulnerability descriptions, risks, and recommendations. Note that you can get how often a block is used, which is a way to get the most common findings as blocks are the basis of findings across pentests and scans. ",
+    {
+        round_type_id: z.number().optional().describe("Optional round type ID to filter blocks, 1 = pentest round, 3 = scan round"),
+        approved: z.boolean().optional().describe("Optional filter for approved blocks only"),
+        automation_approved: z.boolean().optional().describe("Optional filter for automation approved blocks only"),
+        sort: z.string().optional().describe("Optional sort parameter in format 'field-direction'. Available values: id-asc, round_type_id-asc, name-asc, approved-asc, used_count-asc, created_at-asc, updated_at-asc, id-desc, round_type_id-desc, name-desc, approved-desc, used_count-desc, created_at-desc, updated_at-desc. Default: id-asc"),
+        limit: z.number().optional().describe("Optional limit parameter for max results per page (e.g. 15)"),
+        page: z.number().optional().describe("Optional page number to fetch (default: 1)"),
+        includes: z.string().optional().describe("Optional related data to include as comma-separated values. Available: block_business_risks, block_field_variants, block_imports, block_references, block_remediations, block_target_types, block_variables, business_risks, remediations, revisions (e.g. 'block_business_risks,block_remediations')"),
+        fields: z.string().optional().describe("Optional comma-separated list of fields to return (e.g. 'id,name,approved'). Use * as wildcard."),
+        filters: FilterSchema,
+        search: z.string().optional().describe("Optional search term to filter blocks by matching text (e.g. 'CSRF', 'SQL Injection')")
+    },
+    async (params) => {
+        const filters: Record<string, string | number> = {};
+        
+        // Add additional filters if provided
+        if (params.filters) {
+            Object.entries(params.filters).forEach(([key, value]) => {
+                filters[key] = value;
+            });
+        }
+        
+        // Add round_type_id filter if provided
+        if (params.round_type_id) {
+            filters['round_type_id-eq'] = params.round_type_id;
+        }
+        
+        // Add approved filter if provided
+        if (params.approved !== undefined) {
+            filters['approved-eq'] = params.approved ? 1 : 0;
+        }
+        
+        // Add automation_approved filter if provided
+        if (params.automation_approved !== undefined) {
+            filters['automation_approved-eq'] = params.automation_approved ? 1 : 0;
+        }
+        
+        const response = await fetchPage<ApiResponse<BlockFeature>>(
+            'blocks', 
+            params.page || 1, 
+            filters, 
+            params.sort, 
+            params.includes, 
+            params.fields, 
+            params.limit,
+            params.search
+        );
+        
+        if (!response) {
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: "Error fetching blocks data. Please try again."
+                    }
+                ]
+            };
+        }
+        
+        const paginationInfo = formatPaginationInfo(response);
+        const formattedBlocks = response.result.map(formatBlock);
+        
+        const responseText = [
+            "# Blocks Summary",
+            "",
+            "## Pagination Information",
+            paginationInfo,
+            "",
+            "## Blocks Data",
+            ...formattedBlocks
         ].join('\n');
 
         return {
