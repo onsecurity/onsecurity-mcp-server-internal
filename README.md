@@ -15,18 +15,16 @@ npx -y @smithery/cli install @onsecurity/onsecurity-mcp-server --client claude
 ```
 
 ### Manual Installation
+
 ```bash
-git clone https://github.com/onsecurity/onsecurity-mcp-server.git
 cd onsecurity-mcp-server
+npm run build
+
+```
 
 
-### Manual Installation
-
-To use this MCP server with Claude Desktop, you need to add an entry to your Claude Desktop configuration file
-
-Add the following to your configuration file (adjust the paths as needed) and choose UAT or Prod:
-
-```json
+Add the following to your Claude Desktop configuration file (adjust the paths as needed) and choose UAT or Prod:
+```bash
 {
   "mcpServers": {
     "onsec-mcp": {
@@ -51,6 +49,7 @@ Once configured, Claude will have access to the following tools:
 
 - `get-rounds`
 - `get-findings`
+- `get-blocks`
 - `get-notifications`
 - `get-prerequisites`
 
@@ -61,5 +60,7 @@ Once configured, Claude will have access to the following tools:
 - I would like summaries for different types of stakeholders on the state of our recent pentest engagemenets - eg high level, technical, managerial etc
 - Do I need to action anything to prevent test getting held up?
 - Are there any new findings?
+- What are the top 10 most common findings across pentests and scans.
+
 
 *Note: It is useful sometimes to configure Claude to "Extended thinking" for some questions.*
