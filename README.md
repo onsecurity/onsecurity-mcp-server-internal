@@ -1,5 +1,3 @@
-[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/onsecurity-onsecurity-mcp-server-badge.png)](https://mseep.ai/app/onsecurity-onsecurity-mcp-server)
-
 # OnSecurity MCP
 
 A Model Context Protocol (MCP) server for the OnSecurity API that allows Claude to query rounds, findings, prerequisites and notifications.
