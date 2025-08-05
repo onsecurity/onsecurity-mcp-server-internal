@@ -1,18 +1,8 @@
 # OnSecurity MCP
 
-A Model Context Protocol (MCP) server for the OnSecurity API that allows Claude to query rounds, findings, prerequisites and notifications.
+A Model Context Protocol (MCP) server for the OnSecurity API with the ability query rounds, findings, prerequisites, blocks and notifications.
 
 ## Installation
-
-### Installing via Smithery
-
-To install the server for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@onsecurity/onsecurity-mcp-server):
-
-```bash
-npx -y @smithery/cli install @onsecurity/onsecurity-mcp-server --client claude
-```
-
-### Manual Installation
 
 ```bash
 cd onsecurity-mcp-server
