@@ -374,7 +374,7 @@ server.tool(
         includes: z.string().optional().describe("Optional related data to include as comma-separated values (e.g. 'client,findings,targets')"),
         fields: z.string().optional().describe("Optional comma-separated list of fields to return (e.g. 'id,name,started'). Use * as wildcard."),
         filters: FilterSchema,
-        search: z.string().optional().describe("Optional search term to filter rounds by matching text")
+        search: z.string().optional().describe("Search term to find rounds by name of round or name of client")
     },
     async (params) => {
         const filters: Record<string, string | number> = {};
@@ -450,7 +450,7 @@ server.tool(
         includes: z.string().optional().describe("Optional related data to include as comma-separated values (e.g. 'client,round,target_components')"),
         fields: z.string().optional().describe("Optional comma-separated list of fields to return (e.g. 'id,name'). Use * as wildcard."),
         filters: FilterSchema,
-        search: z.string().optional().describe("Optional search term to filter findings by matching text")
+        search: z.string().optional().describe("Search term to find findings by name of finding or related content")
     },
     async (params) => {
         const filters: Record<string, string | number> = {};
@@ -668,7 +668,7 @@ server.tool(
         includes: z.string().optional().describe("Optional related data to include as comma-separated values. Available: block_business_risks, block_field_variants, block_imports, block_references, block_remediations, block_target_types, block_variables, business_risks, remediations, revisions (e.g. 'block_business_risks,block_remediations')"),
         fields: z.string().optional().describe("Optional comma-separated list of fields to return (e.g. 'id,name,approved'). Use * as wildcard."),
         filters: FilterSchema,
-        search: z.string().optional().describe("Optional search term to filter blocks by matching text (e.g. 'CSRF', 'SQL Injection')")
+        search: z.string().optional().describe("Optional search term to filter blocks by matching text")
     },
     async (params) => {
         const filters: Record<string, string | number> = {};
