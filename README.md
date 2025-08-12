@@ -4,21 +4,15 @@ A Model Context Protocol (MCP) server for the OnSecurity API with the ability qu
 
 ## Installation
 
-```bash
-cd onsecurity-mcp-server
-npm run build
-
-```
-
-
 Add the following to your Claude Desktop configuration file (adjust the paths as needed) and choose UAT or Prod:
 ```bash
 {
   "mcpServers": {
     "onsec-mcp": {
-      "command": "node",
+      "command": "npx",
       "args": [
-        "/path/to/onsecurity-mcp-server/build/index.js"
+        "-y",
+        "github:onsecurity/onsecurity-mcp-server"
       ],
       "env": {
         "ONSECURITY_API_TOKEN": "your_api_token",
