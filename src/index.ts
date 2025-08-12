@@ -440,7 +440,7 @@ server.tool(
 // Get all Findings with pagination and advanced filtering
 server.tool(
     "get-findings",
-    "Get all findings data from OnSecurity from client in a high level summary, only include the summary, not the raw data and be sure to present the data in a way that is easy to understand for the client. You can optionally filter findings by round_id. Note that there is no way to find the most common findings using this endpoint. You must use the get-blocks endpoint to find the most common findings.",
+    "Get all findings data from OnSecurity from client in a high level summary, only include the summary, not the raw data and be sure to present the data in a way that is easy to understand for the client. You can optionally filter findings by round_id. HOWEVER ONLY USE THIS TOOL WHEN ASKED FOR FINDINGS RELATED TO A CLIENT OR MY FINDINGS, NOT THE BLOCKS TOOL.",
     {
         round_id: z.number().optional().describe("Optional round ID to filter findings"),
         round_type: z.number().optional().describe("Optional round type to filter rounds, 1 = pentest round, 3 = scan round"),
@@ -657,7 +657,7 @@ server.tool(
 // Get all blocks with pagination and advanced filtering
 server.tool(
     "get-blocks",
-    "Get all blocks data from OnSecurity. Blocks are reusable security finding templates that can be used across different assessments. They contain standardized vulnerability descriptions, risks, and recommendations. Note that you can get how often a block is used, which is a way to get the most common findings as blocks are the basis of findings across pentests and scans. ",
+    "Get all blocks data from OnSecurity. Blocks are reusable security finding templates that can be used across different assessments. They contain standardized vulnerability descriptions, risks, and recommendations. Note that you can get how often a block is used, which is a way to get the most common findings ACROSS ALL CLIENTS ONLY as blocks are the basis of findings across pentests and scans. ",
     {
         round_type_id: z.number().optional().describe("Optional round type ID to filter blocks, 1 = pentest round, 3 = scan round"),
         approved: z.boolean().optional().describe("Optional filter for approved blocks only"),
