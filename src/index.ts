@@ -5,6 +5,43 @@ import { z } from "zod";
 import 'dotenv/config';
 
 // OnSecurity API Types
+export interface TargetType {
+    id: number;
+    name: string;
+    description: string;
+    assessment_name: string;
+    assessment_description: string;
+    assessment_illustration: string;
+    assessment_estimate_multiples: boolean;
+    estimate_enabled: boolean;
+    order: number;
+    target_examples: string[];
+    disabled: boolean;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface Target {
+    id: number;
+    client_id: number;
+    target_type_id: number;
+    hidden: boolean;
+    value: string | null;
+    notes: string | null;
+    name: string | null;
+    created_at: string;
+    updated_at: string;
+    target_type: {
+        object_type: string;
+        type: string;
+        includes: any[];
+        many: boolean;
+        name: string;
+        result: TargetType;
+    };
+}
+
+
 export interface RoundFeature {
     id: number;
     client_id: number;
@@ -19,7 +56,16 @@ export interface RoundFeature {
     finished: boolean;
     name: string;
     executive_summary_published: boolean;
+    targets?: {
+        object_type: string;
+        type: string;
+        includes: string[];
+        many: boolean;
+        name: string;
+        result: Target[];
+    };
 }
+
 
 export interface RoundResponse {
     links: {
@@ -258,9 +304,44 @@ async function fetchPage<T>(
   return await makeOnSecurityRequest<T>(url);
 }
 
+// Extract assessment types from targets
+function extractAssessmentTypes(round: RoundFeature): string[] {
+    if (!round.targets?.result) return [];
+    
+    const assessmentTypes = new Set<string>();
+    
+    // Only include assessment types from hidden targets (assessment type placeholders)
+    round.targets.result
+        .filter(target => target.hidden === true)
+        .forEach(target => {
+            if (target.target_type?.result?.assessment_name) {
+                assessmentTypes.add(target.target_type.result.assessment_name);
+            }
+        });
+    
+    return Array.from(assessmentTypes).sort();
+}
+
+// Extract actual targets (non-hidden) with their types
+function extractActualTargets(round: RoundFeature): { value: string; type: string; notes?: string }[] {
+    if (!round.targets?.result) return [];
+    
+    return round.targets.result
+        .filter(target => target.hidden === false && target.value)
+        .map(target => ({
+            value: target.value!,
+            type: target.target_type?.result?.name || 'Unknown',
+            notes: target.notes || undefined
+        }));
+}
+
+
 // Format Round data
 function formatRound(round: RoundFeature): string {
-    return [
+    const assessmentTypes = extractAssessmentTypes(round);
+    const actualTargets = extractActualTargets(round);
+    
+    const result = [
         `Round ID: ${round.id}`,
         `Client ID: ${round.client_id}`,
         `Round Type: ${round.round_type_id === 1 ? "pentest round" : round.round_type_id === 3 ? "scan round" : round.round_type_id}`,
@@ -271,8 +352,23 @@ function formatRound(round: RoundFeature): string {
         `Completed: ${round.finished}`,
         `Name: ${round.name}`,
         `Executive Summary Published: ${round.executive_summary_published}`,
-        `--------------------------------`,
-    ].join('\n');
+    ];
+    
+    // Add assessment types if available
+    if (assessmentTypes.length > 0) {
+        result.push(`Assessment Types: ${assessmentTypes.join(', ')}`);
+    }
+    
+    // Add actual targets if available and not too many
+    if (actualTargets.length > 0 && actualTargets.length <= 5) {
+        result.push(`Targets: ${actualTargets.map(t => `${t.value} (${t.type})`).join(', ')}`);
+    } else if (actualTargets.length > 5) {
+        result.push(`Targets: ${actualTargets.length} targets configured`);
+    }
+    
+    result.push(`--------------------------------`);
+    
+    return result.join('\n');
 }
 
 // Format Finding data
@@ -365,13 +461,13 @@ const FilterSchema = z.record(z.string(), z.union([z.string(), z.number()])).opt
 // Get all rounds with pagination and advanced filtering
 server.tool(
     "get-rounds",
-    "Get all rounds data from OnSecurity from client in a high level summary. When replying, only include the summary, not the raw data and be sure to present the data in a way that is easy to understand for the client. Rounds can be pentest rounds, scan rounds, or radar rounds.",
+    "Get all rounds data from OnSecurity from client in a high level summary. When replying, only include the summary, not the raw data and be sure to present the data in a way that is easy to understand for the client. Rounds can be pentest rounds, scan rounds, or radar rounds. When targets are included, this tool will show assessment types (derived from hidden target placeholders) and actual target scope.",
     {
         round_type: z.number().optional().describe("Optional round type to filter rounds, 1 = pentest round, 3 = scan round"),
         sort: z.string().optional().describe("Optional sort parameter in format 'field-direction'. Available values: name-asc, start_date-asc, end_date-asc, authorisation_date-asc, hours_estimate-asc, created_at-asc, updated_at-asc, name-desc, start_date-desc, end_date-desc, authorisation_date-desc, hours_estimate-desc, created_at-desc, updated_at-desc. Default: id-asc"),
         limit: z.number().optional().describe("Optional limit parameter for max results per page (e.g. 15)"),
         page: z.number().optional().describe("Optional page number to fetch (default: 1)"),
-        includes: z.string().optional().describe("Optional related data to include as comma-separated values (e.g. 'client,findings,targets')"),
+        includes: z.string().optional().describe("Optional related data to include as comma-separated values (e.g. 'client,findings,targets,targets.target_type'). Use 'targets,targets.target_type' to see assessment types and target details."),
         fields: z.string().optional().describe("Optional comma-separated list of fields to return (e.g. 'id,name,started'). Use * as wildcard."),
         filters: FilterSchema,
         search: z.string().optional().describe("Search term to find rounds by name of round or name of client")
@@ -740,6 +836,7 @@ server.tool(
         };
     }
 );
+
 
 // Start the server
 async function main() {
