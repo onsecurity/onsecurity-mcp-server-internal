@@ -12,7 +12,7 @@ Add the following to your Claude Desktop configuration file (adjust the paths as
       "command": "npx",
       "args": [
         "-y",
-        "github:onsecurity/onsecurity-mcp-server"
+        "github:onsecurity/onsecurity-mcp-server-internal"
       ],
       "env": {
         "ONSECURITY_API_TOKEN": "your_api_token",
