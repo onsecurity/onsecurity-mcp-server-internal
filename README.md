@@ -34,6 +34,13 @@ Once configured, Claude will have access to the following tools:
 - `get-blocks`
 - `get-notifications`
 - `get-prerequisites`
+- `get-round-automation-features`
+- `get-round-artifact-features`
+- `get-client-report-features`
+- `get-report-templates`
+- `get-platform-pods` (NEW: Team structure and pod member information)
+- `get-platform-tasks` (NEW: Task management including retests, reviews, etc.)
+- `get-time-logs` (NEW: Time tracking and billing data)
 
 #### Example Questions
 - Give me a summary of my most recent pentest/scan.

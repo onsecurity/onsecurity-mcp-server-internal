@@ -46,6 +46,7 @@ export interface RoundFeature {
     id: number;
     client_id: number;
     round_type_id: number;
+    pod_id?: number;
     estimate: {
         time: number;
         period: string;
@@ -230,6 +231,195 @@ export interface ApiResponse<T> {
     result: T[];
 }
 
+// ==================== NEW INTERFACES BASED ON PORTAL API ====================
+
+// Round Automation Interface (from /round-automations endpoint)
+export interface RoundAutomationFeature {
+    id: number;
+    round_id: number;
+    automation_type?: string;
+    status?: 'pending' | 'running' | 'completed' | 'failed';
+    started_at?: string;
+    completed_at?: string;
+    error_message?: string;
+    created_at: string;
+    updated_at: string;
+}
+
+// Round Artifact Interface (from /round-artifacts endpoint)
+export interface RoundArtifactFeature {
+    id: number;
+    round_id: number;
+    filename?: string;
+    file_type?: string;
+    file_size?: number;
+    uploaded_by?: number;
+    description?: string;
+    created_at: string;
+    updated_at: string;
+}
+
+
+// Client Report Template Interface (from /client-report-templates endpoint)
+export interface ClientReportTemplateFeature {
+    id: number;
+    client_id?: number;
+    template_name: string;
+    template_type?: string;
+    content?: string;
+    is_default?: boolean;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface PlatformUser {
+    id: number;
+    forename: string;
+    surname: string;
+    job_title?: string;
+    company?: string;
+    has_avatar?: boolean;
+}
+
+export interface PlatformTaskUser {
+    id: number;
+    user_id: number;
+    task_id: number;
+    created_at: string;
+    updated_at: string;
+    user?: {
+        object_type: string;
+        type: string;
+        includes: any[];
+        many: boolean;
+        name: string;
+        result: PlatformUser;
+    };
+}
+
+export interface PlatformPodUser {
+    id: number;
+    user_id: number;
+    pod_id: number;
+    role: string;
+    created_at: string;
+    updated_at: string;
+    user?: {
+        object_type: string;
+        type: string;
+        includes: any[];
+        many: boolean;
+        name: string;
+        result: PlatformUser;
+    };
+}
+
+export interface PlatformPod {
+    id: number;
+    name: string;
+    created_at: string;
+    updated_at: string;
+    pod_users?: {
+        object_type: string;
+        type: string;
+        includes: any[];
+        many: boolean;
+        name: string;
+        result: PlatformPodUser[];
+    };
+}
+
+export interface PlatformTask {
+    id: number;
+    client_id: number;
+    client_name?: string;
+    name: string;
+    description?: string;
+    url?: string;
+    type: number;
+    due_date?: string;
+    completed_at?: string;
+    completed_by_user_id?: number;
+    show_after?: string;
+    created_at: string;
+    updated_at: string;
+    task_users?: {
+        object_type: string;
+        type: string;
+        includes: any[];
+        many: boolean;
+        name: string;
+        result: PlatformTaskUser[];
+    };
+    client?: {
+        object_type: string;
+        type: string;
+        includes: any[];
+        many: boolean;
+        name: string;
+        result: {
+            id: number;
+            name: string;
+        };
+    };
+    round?: {
+        object_type: string;
+        type: string;
+        includes: any[];
+        many: boolean;
+        name: string;
+        result: {
+            id: number;
+            name: string;
+            pod_id?: number;
+        };
+    };
+}
+
+export interface PlatformTimeLog {
+    id: number;
+    round_id: number;
+    user_id: number;
+    client_id: number;
+    date: string;
+    time_logged: any;
+    description?: string;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface PlatformPodUser {
+    id: number;
+    user_id: number;
+    pod_id: number;
+    role: string;
+    created_at: string;
+    updated_at: string;
+    user?: {
+        object_type: string;
+        type: string;
+        includes: any[];
+        many: boolean;
+        name: string;
+        result: PlatformUser;
+    };
+}
+
+export interface PlatformPod {
+    id: number;
+    name: string;
+    created_at: string;
+    updated_at: string;
+    pod_users?: {
+        object_type: string;
+        type: string;
+        includes: any[];
+        many: boolean;
+        name: string;
+        result: PlatformPodUser[];
+    };
+}
+
 const ONSECURITY_API_BASE = process.env.ONSECURITY_API_BASE;
 const ONSECURITY_API_TOKEN = process.env.ONSECURITY_API_TOKEN;
 
@@ -295,9 +485,10 @@ async function fetchPage<T>(
   // Add search if provided
   if (search) queryParams.append('search', search);
   
-  // Add filters
+  // Add filters (convert booleans to 1/0)
   Object.entries(filters).forEach(([key, value]) => {
-    queryParams.append(`filter[${key}]`, value.toString());
+    const filterValue = typeof value === 'boolean' ? (value ? '1' : '0') : value.toString();
+    queryParams.append(`filter[${key}]`, filterValue);
   });
   
   const url = `${ONSECURITY_API_BASE}/${basePath}?${queryParams.toString()}`;
@@ -335,6 +526,60 @@ function extractActualTargets(round: RoundFeature): { value: string; type: strin
         }));
 }
 
+// ==================== ENHANCED HELPER FUNCTIONS ====================
+
+// Helper to extract team/pod information from round includes
+function extractTeamInfo(round: any): { pod?: string; team_leader?: string; team_members?: string[] } {
+    const teamInfo: any = {};
+    
+    if (round.team_leader_user?.result) {
+        teamInfo.team_leader = round.team_leader_user.result.name || round.team_leader_user.result.email;
+    }
+    
+    if (round.round_team_users?.result) {
+        teamInfo.team_members = round.round_team_users.result.map((u: any) => 
+            u.name || u.email || `User ${u.id}`
+        );
+    }
+    
+    // Try to extract pod information from team data
+    if (round.team_users?.result) {
+        const podMatch = round.team_users.result.find((t: any) => 
+            t.name?.toLowerCase().includes('pod')
+        );
+        if (podMatch) {
+            teamInfo.pod = podMatch.name;
+        }
+    }
+    
+    return teamInfo;
+}
+
+// Helper to extract time tracking data from rounds
+function extractTimeData(round: any): { estimated: number; logged: number; remaining: number } {
+    const timeData = {
+        estimated: 0,
+        logged: 0,
+        remaining: 0
+    };
+    
+    // Get estimate from round
+    if (round.estimate) {
+        timeData.estimated = round.estimate.time || 0;
+    }
+    
+    // Calculate logged time from time_logs
+    if (round.time_logs?.result) {
+        timeData.logged = round.time_logs.result.reduce((sum: number, log: any) => 
+            sum + (log.hours || 0), 0
+        );
+    }
+    
+    timeData.remaining = Math.max(0, timeData.estimated - timeData.logged);
+    
+    return timeData;
+}
+
 
 // Format Round data
 function formatRound(round: RoundFeature): string {
@@ -345,6 +590,7 @@ function formatRound(round: RoundFeature): string {
         `Round ID: ${round.id}`,
         `Client ID: ${round.client_id}`,
         `Round Type: ${round.round_type_id === 1 ? "pentest round" : round.round_type_id === 3 ? "scan round" : round.round_type_id}`,
+        `Pod ID: ${round.pod_id || "Not assigned"}`,
         `Estimated: ${round.estimate.time} ${round.estimate.period}`,
         `Start Date: ${round.start_date || "Unknown"}`,
         `End Date: ${round.end_date || "Unknown"}`,
@@ -455,8 +701,8 @@ function formatPaginationInfo<T>(response: ApiResponse<T>): string {
 }
 
 // Define a schema for advanced filters that can be passed directly to the tool
-const FilterSchema = z.record(z.string(), z.union([z.string(), z.number()])).optional()
-    .describe("Optional additional filters in format {field: value} or {field-operator: value} where operator can be mt (more than), mte (more than equal), lt (less than), lte (less than equal), eq (equals, default)");
+const FilterSchema = z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional()
+    .describe("Optional additional filters in format {field: value} or {field-operator: value} where operator can be mt (more than), mte (more than equal), lt (less than), lte (less than equal), eq (equals, default). Boolean values are converted to 1/0.");
 
 // Get all rounds with pagination and advanced filtering
 server.tool(
@@ -478,7 +724,7 @@ server.tool(
         // Add additional filters if provided
         if (params.filters) {
             Object.entries(params.filters).forEach(([key, value]) => {
-                filters[key] = value;
+                filters[key] = typeof value === 'boolean' ? (value ? 1 : 0) : value;
             });
         }
         
@@ -554,7 +800,7 @@ server.tool(
         // Add additional filters if provided
         if (params.filters) {
             Object.entries(params.filters).forEach(([key, value]) => {
-                filters[key] = value;
+                filters[key] = typeof value === 'boolean' ? (value ? 1 : 0) : value;
             });
         }
         
@@ -632,7 +878,7 @@ server.tool(
         // Add additional filters if provided
         if (params.filters) {
             Object.entries(params.filters).forEach(([key, value]) => {
-                filters[key] = value;
+                filters[key] = typeof value === 'boolean' ? (value ? 1 : 0) : value;
             });
         }
         
@@ -701,7 +947,7 @@ server.tool(
         // Add additional filters if provided
         if (params.filters) {
             Object.entries(params.filters).forEach(([key, value]) => {
-                filters[key] = value;
+                filters[key] = typeof value === 'boolean' ? (value ? 1 : 0) : value;
             });
         }
         
@@ -772,7 +1018,7 @@ server.tool(
         // Add additional filters if provided
         if (params.filters) {
             Object.entries(params.filters).forEach(([key, value]) => {
-                filters[key] = value;
+                filters[key] = typeof value === 'boolean' ? (value ? 1 : 0) : value;
             });
         }
         
@@ -833,6 +1079,928 @@ server.tool(
                     text: responseText
                 }
             ]
+        };
+    }
+);
+
+// ==================== NEW MCP TOOLS ====================
+
+// 1. Get Round Automations - Track automation status
+server.tool(
+    "get-round-automations",
+    "Get automation execution data for rounds, including status and failures",
+    {
+        round_id: z.number().optional().describe("Optional round ID to filter automations"),
+        status: z.enum(['pending', 'running', 'completed', 'failed']).optional().describe("Filter by automation status"),
+        automation_type: z.string().optional().describe("Filter by automation type"),
+        sort: z.string().optional().describe("Sort parameter (e.g., 'created_at-desc')"),
+        limit: z.number().optional().describe("Max results per page"),
+        page: z.number().optional().describe("Page number"),
+        filters: FilterSchema
+    },
+    async (params) => {
+        const filters: Record<string, string | number> = {};
+        
+        if (params.round_id) {
+            filters['round_id-eq'] = params.round_id;
+        }
+        
+        if (params.status) {
+            filters['status-eq'] = params.status;
+        }
+        
+        if (params.automation_type) {
+            filters['automation_type-eq'] = params.automation_type;
+        }
+        
+        if (params.filters) {
+            Object.entries(params.filters).forEach(([key, value]) => {
+                filters[key] = typeof value === 'boolean' ? (value ? 1 : 0) : value;
+            });
+        }
+        
+        const response = await fetchPage<ApiResponse<RoundAutomationFeature>>(
+            'round-automations',
+            params.page || 1,
+            filters,
+            params.sort,
+            undefined,
+            '*',
+            params.limit
+        );
+        
+        if (!response) {
+            return {
+                content: [{
+                    type: "text",
+                    text: "Error fetching automation data."
+                }]
+            };
+        }
+        
+        // Format automation status summary
+        const statusCounts = response.result.reduce((acc: any, auto) => {
+            acc[auto.status || 'unknown'] = (acc[auto.status || 'unknown'] || 0) + 1;
+            return acc;
+        }, {});
+        
+        const failedAutomations = response.result.filter(a => a.status === 'failed');
+        
+        const responseText = [
+            "# Round Automations Summary",
+            "",
+            "## Status Overview",
+            `- Pending: ${statusCounts.pending || 0}`,
+            `- Running: ${statusCounts.running || 0}`,
+            `- Completed: ${statusCounts.completed || 0}`,
+            `- Failed: ${statusCounts.failed || 0}`,
+            "",
+            failedAutomations.length > 0 ? "## Failed Automations (Require Attention)" : "",
+            ...failedAutomations.map(a => [
+                `### Automation ${a.id} (Round ${a.round_id})`,
+                `Type: ${a.automation_type || 'Unknown'}`,
+                `Failed at: ${a.completed_at || 'Unknown'}`,
+                `Error: ${a.error_message || 'No error message'}`,
+                "---"
+            ].join('\n')),
+            "",
+            `Total Automations: ${response.total_results}`,
+            `Page ${response.page} of ${response.total_pages}`
+        ].filter(Boolean).join('\n');
+        
+        return {
+            content: [{
+                type: "text",
+                text: responseText
+            }]
+        };
+    }
+);
+
+// 2. Get Round Artifacts - Manage assessment files
+server.tool(
+    "get-round-artifacts",
+    "Get artifacts/files associated with rounds",
+    {
+        round_id: z.number().optional().describe("Optional round ID to filter artifacts"),
+        file_type: z.string().optional().describe("Filter by file type"),
+        sort: z.string().optional().describe("Sort parameter"),
+        limit: z.number().optional().describe("Max results per page"),
+        page: z.number().optional().describe("Page number"),
+        filters: FilterSchema
+    },
+    async (params) => {
+        const filters: Record<string, string | number> = {};
+        
+        if (params.round_id) {
+            filters['round_id-eq'] = params.round_id;
+        }
+        
+        if (params.file_type) {
+            filters['file_type-eq'] = params.file_type;
+        }
+        
+        if (params.filters) {
+            Object.entries(params.filters).forEach(([key, value]) => {
+                filters[key] = typeof value === 'boolean' ? (value ? 1 : 0) : value;
+            });
+        }
+        
+        const response = await fetchPage<ApiResponse<RoundArtifactFeature>>(
+            'round-artifacts',
+            params.page || 1,
+            filters,
+            params.sort,
+            undefined,
+            '*',
+            params.limit
+        );
+        
+        if (!response) {
+            return {
+                content: [{
+                    type: "text",
+                    text: "Error fetching artifacts data."
+                }]
+            };
+        }
+        
+        // Group artifacts by round
+        const artifactsByRound = response.result.reduce((acc: any, artifact) => {
+            if (!acc[artifact.round_id]) {
+                acc[artifact.round_id] = [];
+            }
+            acc[artifact.round_id].push(artifact);
+            return acc;
+        }, {});
+        
+        const responseText = [
+            "# Round Artifacts Summary",
+            "",
+            ...Object.entries(artifactsByRound).map(([roundId, artifacts]: any) => [
+                `## Round ${roundId}`,
+                `Total Files: ${artifacts.length}`,
+                "",
+                ...artifacts.map((a: RoundArtifactFeature) => 
+                    `- ${a.filename || 'Unnamed'} (${a.file_type || 'Unknown type'}, ${
+                        a.file_size ? `${(a.file_size / 1024).toFixed(2)} KB` : 'Size unknown'
+                    })`
+                ),
+                ""
+            ].join('\n')),
+            `Total Artifacts: ${response.total_results}`,
+            `Page ${response.page} of ${response.total_pages}`
+        ].join('\n');
+        
+        return {
+            content: [{
+                type: "text",
+                text: responseText
+            }]
+        };
+    }
+);
+
+// 3. Get Enhanced Round Summary with Time Tracking and Team Info
+server.tool(
+    "get-round-summary",
+    "Get comprehensive round summary including time tracking, team assignments, and progress",
+    {
+        round_id: z.number().describe("Round ID to get summary for"),
+        include_findings: z.boolean().optional().default(true).describe("Include findings summary"),
+        include_time_tracking: z.boolean().optional().default(true).describe("Include time tracking data"),
+        include_team: z.boolean().optional().default(true).describe("Include team information"),
+        include_prerequisites: z.boolean().optional().default(true).describe("Include prerequisites status")
+    },
+    async (params) => {
+        // Fetch round with all relevant includes
+        const includes = [
+            'client',
+            'findings',
+            'prerequisites',
+            'targets',
+            'targets.target_type',
+            params.include_time_tracking ? 'time_logs' : null,
+            params.include_team ? 'round_team_users,team_leader_user' : null
+        ].filter(Boolean).join(',');
+        
+        const url = `${ONSECURITY_API_BASE}/rounds/${params.round_id}?include=${includes}`;
+        const round = await makeOnSecurityRequest<any>(url);
+        
+        if (!round) {
+            return {
+                content: [{
+                    type: "text",
+                    text: "Error fetching round summary."
+                }]
+            };
+        }
+        
+        // Extract various data points
+        const teamInfo = extractTeamInfo(round);
+        const timeData = extractTimeData(round);
+        const assessmentTypes = extractAssessmentTypes(round);
+        const targets = extractActualTargets(round);
+        
+        // Calculate findings summary
+        const findingsSummary = round.findings?.result ? {
+            total: round.findings.result.length,
+            critical: round.findings.result.filter((f: any) => f.cvss?.score >= 9).length,
+            high: round.findings.result.filter((f: any) => f.cvss?.score >= 7 && f.cvss?.score < 9).length,
+            medium: round.findings.result.filter((f: any) => f.cvss?.score >= 4 && f.cvss?.score < 7).length,
+            low: round.findings.result.filter((f: any) => f.cvss?.score < 4).length
+        } : null;
+        
+        // Calculate prerequisites status
+        const prerequisitesSummary = round.prerequisites?.result ? {
+            total: round.prerequisites.result.length,
+            completed: round.prerequisites.result.filter((p: any) => p.status === 'completed').length,
+            pending: round.prerequisites.result.filter((p: any) => p.status !== 'completed').length,
+            required_pending: round.prerequisites.result.filter((p: any) => 
+                p.required && p.status !== 'completed'
+            ).length
+        } : null;
+        
+        const responseText = [
+            `# Round Summary: ${round.name}`,
+            "",
+            "## Basic Information",
+            `- **Round ID:** ${round.id}`,
+            `- **Client:** ${round.client?.result?.name || 'Unknown'}`,
+            `- **Type:** ${round.round_type_id === 1 ? "Penetration Test" : round.round_type_id === 3 ? "Vulnerability Scan" : "Other"}`,
+            `- **Pod:** ${round.pod_id ? `Pod ${round.pod_id}` : 'Not assigned'}`,
+            `- **Status:** ${round.started ? (round.finished ? "✅ Completed" : "🔄 In Progress") : "📅 Scheduled"}`,
+            `- **Dates:** ${round.start_date || 'TBD'} to ${round.end_date || 'TBD'}`,
+            `- **Executive Summary:** ${round.executive_summary_published ? "✅ Published" : "❌ Not Published"}`,
+            "",
+            assessmentTypes.length > 0 ? "## Assessment Types" : "",
+            ...assessmentTypes.map(type => `- ${type}`),
+            "",
+            targets.length > 0 ? "## Target Scope" : "",
+            ...targets.slice(0, 10).map(t => `- ${t.value} (${t.type})`),
+            targets.length > 10 ? `... and ${targets.length - 10} more targets` : "",
+            "",
+            params.include_team && teamInfo ? "## Team Assignment" : "",
+            teamInfo.pod ? `- **Pod:** ${teamInfo.pod}` : "",
+            teamInfo.team_leader ? `- **Team Leader:** ${teamInfo.team_leader}` : "",
+            teamInfo.team_members ? `- **Team Members:** ${teamInfo.team_members.join(', ')}` : "",
+            "",
+            params.include_time_tracking ? "## Time Tracking" : "",
+            params.include_time_tracking ? `- **Estimated:** ${timeData.estimated} hours` : "",
+            params.include_time_tracking ? `- **Logged:** ${timeData.logged} hours` : "",
+            params.include_time_tracking ? `- **Remaining:** ${timeData.remaining} hours` : "",
+            params.include_time_tracking && timeData.estimated > 0 ? 
+                `- **Progress:** ${((timeData.logged / timeData.estimated) * 100).toFixed(1)}%` : "",
+            "",
+            params.include_findings && findingsSummary ? "## Findings Summary" : "",
+            params.include_findings && findingsSummary ? `- **Total Findings:** ${findingsSummary.total}` : "",
+            params.include_findings && findingsSummary ? `- **Critical:** ${findingsSummary.critical}` : "",
+            params.include_findings && findingsSummary ? `- **High:** ${findingsSummary.high}` : "",
+            params.include_findings && findingsSummary ? `- **Medium:** ${findingsSummary.medium}` : "",
+            params.include_findings && findingsSummary ? `- **Low:** ${findingsSummary.low}` : "",
+            "",
+            params.include_prerequisites && prerequisitesSummary ? "## Prerequisites Status" : "",
+            params.include_prerequisites && prerequisitesSummary ? 
+                `- **Total:** ${prerequisitesSummary.total}` : "",
+            params.include_prerequisites && prerequisitesSummary ? 
+                `- **Completed:** ${prerequisitesSummary.completed}` : "",
+            params.include_prerequisites && prerequisitesSummary ? 
+                `- **Pending:** ${prerequisitesSummary.pending}` : "",
+            params.include_prerequisites && prerequisitesSummary && prerequisitesSummary.required_pending > 0 ? 
+                `- **⚠️ Required Prerequisites Pending:** ${prerequisitesSummary.required_pending}` : "",
+        ].filter(Boolean).join('\n');
+        
+        return {
+            content: [{
+                type: "text",
+                text: responseText
+            }]
+        };
+    }
+);
+
+// 5. Get Vulnerability Trends Analysis
+server.tool(
+    "get-vulnerability-trends",
+    "Analyze vulnerability trends using block usage data across all assessments",
+    {
+        round_type_id: z.number().optional().describe("Filter by round type (1=pentest, 3=scan)"),
+        min_usage_count: z.number().optional().default(5).describe("Minimum usage count to include"),
+        limit: z.number().optional().default(20).describe("Number of top vulnerabilities to show"),
+        include_remediation: z.boolean().optional().default(true).describe("Include remediation complexity")
+    },
+    async (params) => {
+        const filters: Record<string, string | number> = {};
+        
+        if (params.round_type_id) {
+            filters['round_type_id-eq'] = params.round_type_id;
+        }
+        
+        filters['used_count-mte'] = params.min_usage_count || 5;
+        
+        const response = await fetchPage<ApiResponse<BlockFeature>>(
+            'blocks',
+            1,
+            filters,
+            'used_count-desc', // Sort by most used
+            params.include_remediation ? 'block_remediations' : undefined,
+            'id,name,used_count,remediation_complexity,ratings',
+            params.limit
+        );
+        
+        if (!response) {
+            return {
+                content: [{
+                    type: "text",
+                    text: "Error fetching vulnerability trends."
+                }]
+            };
+        }
+        
+        // Calculate severity distribution
+        const severityDist = response.result.reduce((acc: any, block) => {
+            const score = block.ratings?.cvss?.score || block.cvss?.score || 0;
+            let severity = 'Unknown';
+            if (score >= 9) severity = 'Critical';
+            else if (score >= 7) severity = 'High';
+            else if (score >= 4) severity = 'Medium';
+            else if (score > 0) severity = 'Low';
+            
+            acc[severity] = (acc[severity] || 0) + block.used_count;
+            return acc;
+        }, {});
+        
+        const totalOccurrences = Object.values(severityDist).reduce((a, b) => (a as number) + (b as number), 0);
+        
+        const responseText = [
+            "# Vulnerability Trends Analysis",
+            "",
+            "## Top Recurring Vulnerabilities",
+            "These are the most frequently identified vulnerabilities across all assessments:",
+            "",
+            ...response.result.slice(0, 10).map((block, index) => {
+                const score = block.ratings?.cvss?.score || block.cvss?.score || 0;
+                const severity = score >= 9 ? "🔴 CRITICAL" : 
+                               score >= 7 ? "🟠 HIGH" : 
+                               score >= 4 ? "🟡 MEDIUM" : 
+                               score > 0 ? "🟢 LOW" : "⚪ UNKNOWN";
+                
+                return [
+                    `### ${index + 1}. ${block.name}`,
+                    `- **Occurrences:** ${block.used_count} times`,
+                    `- **Severity:** ${severity} (CVSS: ${score || 'N/A'})`,
+                    params.include_remediation ? 
+                        `- **Remediation Complexity:** ${block.remediation_complexity || 'Not specified'}` : "",
+                    "---"
+                ].filter(Boolean).join('\n');
+            }),
+            "",
+            "## Severity Distribution",
+            `Total Vulnerability Occurrences: ${totalOccurrences}`,
+            "",
+            ...Object.entries(severityDist)
+                .sort(([,a]: any, [,b]: any) => b - a)
+                .map(([severity, count]: any) => 
+                    `- **${severity}:** ${count} occurrences (${((count as number)/(totalOccurrences as number)*100).toFixed(1)}%)`
+                ),
+            "",
+            "## Insights",
+            `- Most common vulnerability: ${response.result[0]?.name || 'N/A'} (${response.result[0]?.used_count || 0} occurrences)`,
+            `- Average occurrences per vulnerability: ${(response.result.reduce((sum, b) => sum + b.used_count, 0) / response.result.length).toFixed(1)}`,
+            `- Vulnerabilities analyzed: ${response.total_results}`
+        ].join('\n');
+        
+        return {
+            content: [{
+                type: "text",
+                text: responseText
+            }]
+        };
+    }
+);
+
+// 6. Get Client Report Templates
+server.tool(
+    "get-report-templates",
+    "Get available report templates for clients",
+    {
+        client_id: z.number().optional().describe("Optional client ID to filter templates"),
+        template_type: z.string().optional().describe("Filter by template type"),
+        is_default: z.boolean().optional().describe("Filter for default templates only"),
+        sort: z.string().optional().describe("Sort parameter"),
+        limit: z.number().optional().describe("Max results per page"),
+        page: z.number().optional().describe("Page number")
+    },
+    async (params) => {
+        const filters: Record<string, string | number> = {};
+        
+        if (params.client_id) {
+            filters['client_id-eq'] = params.client_id;
+        }
+        
+        if (params.template_type) {
+            filters['template_type-eq'] = params.template_type;
+        }
+        
+        if (params.is_default !== undefined) {
+            filters['is_default-eq'] = params.is_default ? 1 : 0;
+        }
+        
+        const response = await fetchPage<ApiResponse<ClientReportTemplateFeature>>(
+            'client-report-templates',
+            params.page || 1,
+            filters,
+            params.sort,
+            'client',
+            '*',
+            params.limit
+        );
+        
+        if (!response) {
+            return {
+                content: [{
+                    type: "text",
+                    text: "Error fetching report templates."
+                }]
+            };
+        }
+        
+        // Group templates by type
+        const templatesByType = response.result.reduce((acc: any, template) => {
+            const type = template.template_type || 'General';
+            if (!acc[type]) acc[type] = [];
+            acc[type].push(template);
+            return acc;
+        }, {});
+        
+        const responseText = [
+            "# Report Templates",
+            "",
+            ...Object.entries(templatesByType).map(([type, templates]: any) => [
+                `## ${type} Templates`,
+                ...templates.map((t: ClientReportTemplateFeature) => 
+                    `- **${t.template_name}** ${t.is_default ? '(Default)' : ''} - Client: ${t.client_id || 'Global'}`
+                ),
+                ""
+            ].flat()),
+            `Total Templates: ${response.total_results}`,
+            `Page ${response.page} of ${response.total_pages}`
+        ].join('\n');
+        
+        return {
+            content: [{
+                type: "text",
+                text: responseText
+            }]
+        };
+    }
+);
+
+// 7. Get Platform Pods (Team Structure)
+server.tool(
+    "get-platform-pods",
+    "Get platform pods (teams) from OnSecurity API. Shows pod structure with member names, roles, and team composition. Use this to understand which team members are in each pod.",
+    {
+        includes: z.string().optional().describe("Include related data: 'pod_users,pod_users.user' for member details"),
+        limit: z.number().optional().describe("Max results per page (default: all pods)"),
+        page: z.number().optional().describe("Page number (default: 1)")
+    },
+    async (params) => {
+        const response = await fetchPage<ApiResponse<PlatformPod>>(
+            'platform/pods',
+            params.page || 1,
+            {},
+            'id-asc',
+            params.includes || 'pod_users,pod_users.user',
+            '*',
+            params.limit || 50
+        );
+        
+        if (!response) {
+            return {
+                content: [{
+                    type: "text",
+                    text: "Error fetching platform pods."
+                }]
+            };
+        }
+
+        const responseText = [
+            "# Platform Pods (Teams)",
+            `Found ${response.total_results} pods`,
+            "",
+            ...response.result.map(pod => {
+                const members = pod.pod_users?.result || [];
+                const memberList = members.map(member => {
+                    const user = member.user?.result;
+                    const name = user ? `${user.forename} ${user.surname}` : `User ${member.user_id}`;
+                    const title = user?.job_title ? ` (${user.job_title})` : '';
+                    const role = member.role ? ` - ${member.role}` : '';
+                    return `  - ${name}${title}${role}`;
+                }).join('\n');
+                
+                return [
+                    `## ${pod.name}`,
+                    `**Pod ID:** ${pod.id}`,
+                    `**Members:** ${members.length}`,
+                    members.length > 0 ? memberList : "  - No members assigned",
+                    `**Created:** ${new Date(pod.created_at).toLocaleDateString()}`,
+                    ""
+                ].join('\n');
+            })
+        ].filter(Boolean).join('\n');
+
+        return {
+            content: [{
+                type: "text",
+                text: responseText
+            }]
+        };
+    }
+);
+
+// 8. Get Platform Tasks (Task Management)
+server.tool(
+    "get-platform-tasks",
+    "Get platform tasks from OnSecurity API via /platform/tasks endpoint. This shows task management data including retests, reviews, and other task types with assigned user names. Task types: 1=comment, 2=review, 3=retest requested, 4=new file, 5=exec review, 6=unknown, 7=new annotation, 8=pre-req. Filters for incomplete tasks by default.",
+    {
+        completed: z.boolean().optional().describe("Filter by completion status (default: false for incomplete tasks)"),
+        snoozed: z.boolean().optional().describe("Filter by snoozed status"),
+        sort: z.string().optional().describe("Sort parameter in format 'field-direction'. Available: id-asc, completed_at-asc, show_after-asc, created_at-asc, updated_at-asc, id-desc, completed_at-desc, show_after-desc, created_at-desc, updated_at-desc"),
+        limit: z.number().optional().describe("Max results per page (e.g. 50)"),
+        page: z.number().optional().describe("Page number (default: 1)"),
+        includes: z.string().optional().describe("Include related data: 'client', 'task_users,client', 'task_users,task_users.user,client,round' for user names and pod info"),
+        fields: z.string().optional().describe("Specific fields to return (e.g. '*,client.id,client.name,task_users.*')")
+    },
+    async (params) => {
+        const filters: Record<string, string | number> = {};
+        
+        // Default to incomplete tasks unless explicitly specified
+        if (params.completed !== undefined) {
+            filters['completed-eq'] = params.completed ? 1 : 0;
+        } else {
+            filters['completed-eq'] = 0; // Default to incomplete tasks
+        }
+        
+        if (params.snoozed !== undefined) {
+            filters['snoozed-eq'] = params.snoozed ? 1 : 0;
+        }
+        
+        const response = await fetchPage<ApiResponse<PlatformTask>>(
+            'platform/tasks',
+            params.page || 1,
+            filters,
+            params.sort || 'id-asc',
+            params.includes || 'task_users,task_users.user,client',
+            params.fields || '*,client.id,client.name,task_users.*,task_users.user.*',
+            params.limit || 50
+        );
+        
+        if (!response) {
+            return {
+                content: [{
+                    type: "text",
+                    text: "Error fetching platform tasks."
+                }]
+            };
+        }
+
+        // Extract round IDs from task URLs to get pod information
+        const roundIdToPodMap: Record<number, number | null> = {};
+        const findingToRoundMap: Record<number, number | null> = {};
+        const podCache: Record<number, PlatformPod | null> = {};
+        const roundIds = new Set<number>();
+        const findingIds = new Set<number>();
+        
+        // Extract round IDs and finding IDs from task URLs
+        for (const task of response.result) {
+            if (task.url) {
+                const testMatch = task.url.match(/\/tests\/(\d+)/);
+                const findingMatch = task.url.match(/\/findings\/(\d+)/);
+                const prerequisiteMatch = task.url.match(/\/test\/(\d+)\/prerequisites/);
+                
+                if (testMatch) {
+                    const roundId = parseInt(testMatch[1]);
+                    roundIds.add(roundId);
+                } else if (findingMatch) {
+                    const findingId = parseInt(findingMatch[1]);
+                    findingIds.add(findingId);
+                } else if (prerequisiteMatch) {
+                    // Prerequisites are linked directly to rounds
+                    const roundId = parseInt(prerequisiteMatch[1]);
+                    roundIds.add(roundId);
+                }
+            }
+        }
+        
+        // Fetch finding information to get their round IDs
+        for (const findingId of findingIds) {
+            try {
+                const url = `${ONSECURITY_API_BASE}/findings/${findingId}`;
+                const finding = await makeOnSecurityRequest<any>(url);
+                
+                if (finding && finding.round_id) {
+                    findingToRoundMap[findingId] = finding.round_id;
+                    roundIds.add(finding.round_id);
+                } else {
+                    findingToRoundMap[findingId] = null;
+                }
+            } catch (error) {
+                findingToRoundMap[findingId] = null;
+            }
+        }
+        
+        // Fetch round information for the identified round IDs
+        for (const roundId of roundIds) {
+            try {
+                const url = `${ONSECURITY_API_BASE}/rounds/${roundId}`;
+                const round = await makeOnSecurityRequest<any>(url);
+                
+                if (round && round.pod_id) {
+                    roundIdToPodMap[roundId] = round.pod_id;
+                } else {
+                    roundIdToPodMap[roundId] = null;
+                }
+            } catch (error) {
+                roundIdToPodMap[roundId] = null;
+            }
+        }
+
+        // Get unique pod IDs and fetch their details
+        const uniquePodIds = [...new Set(Object.values(roundIdToPodMap).filter(id => id !== null))];
+        
+        for (const podId of uniquePodIds) {
+            try {
+                const podResponse = await fetchPage<ApiResponse<PlatformPod>>(
+                    'platform/pods',
+                    1,
+                    { 'id-eq': podId },
+                    'id-asc',
+                    'pod_users,pod_users.user',
+                    '*',
+                    1
+                );
+                
+                if (podResponse && podResponse.result.length > 0) {
+                    podCache[podId!] = podResponse.result[0];
+                } else {
+                    podCache[podId!] = null;
+                }
+            } catch (error) {
+                podCache[podId!] = null;
+            }
+        }
+        
+        // Map task types to readable names
+        const taskTypeNames: Record<number, string> = {
+            1: 'Comment',
+            2: 'Review', 
+            3: 'Retest Requested',
+            4: 'New File',
+            5: 'Executive Review',
+            6: 'Unknown',
+            7: 'New Annotation',
+            8: 'Prerequisite'
+        };
+        
+        // Group tasks by type and status
+        const tasksByType = response.result.reduce((acc: any, task) => {
+            const typeName = taskTypeNames[task.type] || `Unknown Type ${task.type}`;
+            if (!acc[typeName]) acc[typeName] = [];
+            acc[typeName].push(task);
+            return acc;
+        }, {});
+        
+        const responseText = [
+            "# Platform Tasks",
+            `Found ${response.total_results} tasks across ${response.total_pages} pages`,
+            "",
+            ...Object.entries(tasksByType).map(([type, tasks]: any) => [
+                `## ${type} (${tasks.length})`,
+                ...tasks.map((task: PlatformTask) => {
+                    const clientName = task.client?.result?.name || task.client_name || 'Unknown Client';
+                    const dueDate = task.due_date ? new Date(task.due_date).toLocaleDateString() : 'No due date';
+                    const assignedUsers = task.task_users?.result?.length || 0;
+                    
+                    // Extract user names if available
+                    const userNames = task.task_users?.result
+                        ?.map(taskUser => {
+                            if (taskUser.user?.result) {
+                                const user = taskUser.user.result;
+                                return `${user.forename} ${user.surname}${user.job_title ? ` (${user.job_title})` : ''}`;
+                            }
+                            return `User ${taskUser.user_id}`;
+                        })
+                        ?.join(', ') || 'None';
+                    
+                    // Get pod information from round mapping
+                    let podInfo = 'Pod info not available';
+                    if (task.url) {
+                        const testMatch = task.url.match(/\/tests\/(\d+)/);
+                        const findingMatch = task.url.match(/\/findings\/(\d+)/);
+                        const prerequisiteMatch = task.url.match(/\/test\/(\d+)\/prerequisites/);
+                        
+                        let roundId: number | null = null;
+                        
+                        if (testMatch) {
+                            roundId = parseInt(testMatch[1]);
+                        } else if (findingMatch) {
+                            const findingId = parseInt(findingMatch[1]);
+                            roundId = findingToRoundMap[findingId];
+                        } else if (prerequisiteMatch) {
+                            roundId = parseInt(prerequisiteMatch[1]);
+                        }
+                        
+                        if (roundId) {
+                            const podId = roundIdToPodMap[roundId];
+                            if (podId && podCache[podId]) {
+                                const pod = podCache[podId];
+                                const memberNames = pod?.pod_users?.result
+                                    ?.map(member => {
+                                        const user = member.user?.result;
+                                        return user ? user.forename : `User ${member.user_id}`;
+                                    })
+                                    ?.slice(0, 3)  // Show max 3 names
+                                    ?.join(', ') || '';
+                                
+                                if (memberNames) {
+                                    const moreCount = (pod?.pod_users?.result?.length || 0) - 3;
+                                    const moreText = moreCount > 0 ? `, +${moreCount} more` : '';
+                                    podInfo = `${pod?.name} (${memberNames}${moreText})`;
+                                } else {
+                                    podInfo = `${pod?.name}`;
+                                }
+                            } else if (podId) {
+                                podInfo = `Pod ${podId}`;
+                            }
+                        }
+                    }
+                    
+                    return [
+                        `### Task #${task.id} - ${clientName}`,
+                        `**${task.name}**`,
+                        task.description ? `*${task.description}*` : '',
+                        `- Due: ${dueDate}`,
+                        `- Pod: ${podInfo}`,
+                        assignedUsers > 0 ? `- Assigned to: ${userNames}` : '- Assigned to: None',
+                        task.url ? `- URL: ${task.url}` : '',
+                        `- Created: ${new Date(task.created_at).toLocaleDateString()}`,
+                        ''
+                    ].filter(Boolean).join('\n');
+                }),
+                ""
+            ].flat()),
+            `Page ${response.page} of ${response.total_pages}`
+        ].filter(Boolean).join('\n');
+        
+        return {
+            content: [{
+                type: "text",
+                text: responseText
+            }]
+        };
+    }
+);
+
+// 8. Get Time Logs (Time Tracking)
+server.tool(
+    "get-time-logs",
+    "Get time logs from OnSecurity API. This shows time tracking data for pentester work hours logged against rounds and clients. Useful for time management and billing tracking.",
+    {
+        round_id: z.number().optional().describe("Filter by specific round ID"),
+        user_id: z.number().optional().describe("Filter by specific user ID"),
+        client_id: z.number().optional().describe("Filter by specific client ID"),
+        date_from: z.string().optional().describe("Filter time logs from this date (YYYY-MM-DD format)"),
+        date_to: z.string().optional().describe("Filter time logs up to this date (YYYY-MM-DD format)"),
+        sort: z.string().optional().describe("Sort parameter: id-asc, round_id-asc, user_id-asc, client_id-asc, date-asc, id-desc, round_id-desc, user_id-desc, client_id-desc, date-desc"),
+        limit: z.number().optional().describe("Max results per page (e.g. 50)"),
+        page: z.number().optional().describe("Page number (default: 1)"),
+        includes: z.string().optional().describe("Include related data: 'round', 'user', 'client', or combinations"),
+        fields: z.string().optional().describe("Specific fields to return")
+    },
+    async (params) => {
+        const filters: Record<string, string | number> = {};
+        
+        if (params.round_id) {
+            filters['round_id-eq'] = params.round_id;
+        }
+        
+        if (params.user_id) {
+            filters['user_id-eq'] = params.user_id;
+        }
+        
+        if (params.client_id) {
+            filters['client_id-eq'] = params.client_id;
+        }
+        
+        if (params.date_from) {
+            filters['date-mte'] = params.date_from;
+        }
+        
+        if (params.date_to) {
+            filters['date-lte'] = params.date_to;
+        }
+        
+        const response = await fetchPage<ApiResponse<PlatformTimeLog>>(
+            'time-logs',
+            params.page || 1,
+            filters,
+            params.sort || 'date-desc',
+            params.includes || 'round,user,client',
+            params.fields || '*',
+            params.limit || 50
+        );
+        
+        if (!response) {
+            return {
+                content: [{
+                    type: "text",
+                    text: "Error fetching time logs."
+                }]
+            };
+        }
+        
+        // Group by date for better readability
+        const logsByDate = response.result.reduce((acc: any, log) => {
+            const date = log.date;
+            if (!acc[date]) acc[date] = [];
+            acc[date].push(log);
+            return acc;
+        }, {});
+        
+        const responseText = [
+            "# Time Logs",
+            `Found ${response.total_results} time entries across ${response.total_pages} pages`,
+            "",
+            ...Object.entries(logsByDate).map(([date, logs]: any) => {
+                const totalTime = logs.reduce((sum: number, log: PlatformTimeLog) => {
+                    // Handle time_logged which could be object with hours/minutes or just number
+                    const timeValue = typeof log.time_logged === 'object' 
+                        ? (log.time_logged.hours || 0) + (log.time_logged.minutes || 0) / 60
+                        : log.time_logged || 0;
+                    return sum + timeValue;
+                }, 0);
+                
+                return [
+                    `## ${date} (${totalTime.toFixed(1)} hours total)`,
+                    ...logs.map((log: PlatformTimeLog) => {
+                        const timeValue = typeof log.time_logged === 'object' 
+                            ? `${log.time_logged.hours || 0}h ${log.time_logged.minutes || 0}m`
+                            : `${log.time_logged || 0}h`;
+                        
+                        return [
+                            `### Time Entry #${log.id}`,
+                            `- **Time**: ${timeValue}`,
+                            `- **Round**: ${log.round_id}`,
+                            `- **User**: ${log.user_id}`,
+                            `- **Client**: ${log.client_id}`,
+                            log.description ? `- **Description**: ${log.description}` : '',
+                            ''
+                        ].filter(Boolean).join('\n');
+                    }),
+                    ""
+                ].flat();
+            }).flat(),
+            `Page ${response.page} of ${response.total_pages}`
+        ].filter(Boolean).join('\n');
+        
+        return {
+            content: [{
+                type: "text",
+                text: responseText
+            }]
+        };
+    }
+);
+
+// ==================== MCP RESOURCES FOR BETTER CONTEXT ====================
+
+// Add resource for round summaries
+server.resource(
+    "round/{roundId}/full-context",
+    "Get complete context for a round including all related data",
+    async (request: any) => {
+        const roundId = request.params?.roundId;
+        const includes = 'client,findings,prerequisites,targets,targets.target_type,time_logs,round_team_users';
+        const url = `${ONSECURITY_API_BASE}/rounds/${roundId}?include=${includes}`;
+        const round = await makeOnSecurityRequest<any>(url);
+        
+        if (!round) {
+            return {
+                contents: [{
+                    uri: `round/${roundId}/full-context`,
+                    mimeType: "application/json",
+                    text: JSON.stringify({ error: "Round not found" })
+                }]
+            };
+        }
+        
+        return {
+            contents: [{
+                uri: `round/${roundId}/full-context`,
+                mimeType: "application/json",
+                text: JSON.stringify(round, null, 2)
+            }]
         };
     }
 );
