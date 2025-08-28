@@ -12,10 +12,10 @@ Add the following to your Claude Desktop configuration file (adjust the paths as
       "command": "npx",
       "args": [
         "-y",
-        "github:onsecurity/onsecurity-mcp-server-internal"
+        "git+https://{{YOUR_GITHUB_TOKEN}}@github.com/onsecurity/onsecurity-mcp-server-internal.git"
       ],
       "env": {
-        "ONSECURITY_API_TOKEN": "your_api_token",
+        "ONSECURITY_API_TOKEN": "{{YOUR_ONSECURITY_API_TOKEN}}",
         "ONSECURITY_API_BASE": "https://app.onsecurity.io/api/v2"
       }
     }
@@ -38,9 +38,9 @@ Once configured, Claude will have access to the following tools:
 - `get-round-artifact-features`
 - `get-client-report-features`
 - `get-report-templates`
-- `get-platform-pods` (NEW: Team structure and pod member information)
-- `get-platform-tasks` (NEW: Task management including retests, reviews, etc.)
-- `get-time-logs` (NEW: Time tracking and billing data)
+- `get-platform-pods`
+- `get-platform-tasks`
+- `get-time-logs`
 
 #### Example Questions
 - Give me a summary of my most recent pentest/scan.
@@ -50,6 +50,5 @@ Once configured, Claude will have access to the following tools:
 - Do I need to action anything to prevent test getting held up?
 - Are there any new findings?
 - What are the top 10 most common findings across pentests and scans.
-
 
 *Note: It is useful sometimes to configure Claude to "Extended thinking" for some questions.*
