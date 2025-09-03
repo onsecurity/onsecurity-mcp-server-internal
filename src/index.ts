@@ -47,7 +47,7 @@ const server = new McpServer(
 // Get all rounds with pagination and advanced filtering
 server.tool(
     "get-rounds",
-    "Get all rounds data from OnSecurity from client in a high level summary. When replying, only include the summary, not the raw data and be sure to present the data in a way that is easy to understand for the client. Rounds can be pentest rounds, scan rounds, or radar rounds. When targets are included, this tool will show assessment types (derived from hidden target placeholders) and actual target scope.",
+    "Get all rounds data from OnSecurity from client in a high level summary. When replying, only include the summary, not the raw data and be sure to present the data in a way that is easy to understand for the client. Defaults to pentest rounds only (round_type_id=1). To include scan rounds or radar rounds, specify round_type parameter. When targets are included, this tool will show assessment types (derived from hidden target placeholders) and actual target scope.",
     {
         round_type: z.number().optional().describe("Optional round type to filter rounds, 1 = pentest round, 3 = scan round"),
         sort: z.string().optional().describe("Optional sort parameter in format 'field-direction'. Available values: name-asc, start_date-asc, end_date-asc, authorisation_date-asc, hours_estimate-asc, created_at-asc, updated_at-asc, name-desc, start_date-desc, end_date-desc, authorisation_date-desc, hours_estimate-desc, created_at-desc, updated_at-desc. Default: id-asc"),
@@ -68,9 +68,11 @@ server.tool(
             });
         }
         
-        // Add round_type filter if provided
+        // Add round_type filter - default to pentest rounds (1) if not specified
         if (params.round_type) {
             filters['round_type_id-eq'] = params.round_type;
+        } else {
+            filters['round_type_id-eq'] = 1; // Default to pentest rounds only
         }
         
         const response = await fetchPage<ApiResponse<RoundFeature>>(
@@ -122,7 +124,7 @@ server.tool(
 // Get all Findings with pagination and advanced filtering
 server.tool(
     "get-findings",
-    "Get all findings data from OnSecurity from client in a high level summary, only include the summary, not the raw data and be sure to present the data in a way that is easy to understand for the client. You can optionally filter findings by round_id. HOWEVER ONLY USE THIS TOOL WHEN ASKED FOR FINDINGS RELATED TO A CLIENT OR MY FINDINGS, NOT THE BLOCKS TOOL.",
+    "Get all findings data from OnSecurity from client in a high level summary, only include the summary, not the raw data and be sure to present the data in a way that is easy to understand for the client. Defaults to pentest rounds only (round_type_id=1). You can optionally filter findings by round_id. HOWEVER ONLY USE THIS TOOL WHEN ASKED FOR FINDINGS RELATED TO A CLIENT OR MY FINDINGS, NOT THE BLOCKS TOOL.",
     {
         round_id: z.number().optional().describe("Optional round ID to filter findings"),
         round_type: z.number().optional().describe("Optional round type to filter rounds, 1 = pentest round, 3 = scan round"),
@@ -149,9 +151,11 @@ server.tool(
             filters['round_id-eq'] = params.round_id;
         }
         
-        // Add round_type filter if provided
+        // Add round_type filter - default to pentest rounds (1) if not specified
         if (params.round_type) {
             filters['round_type_id-eq'] = params.round_type;
+        } else {
+            filters['round_type_id-eq'] = 1; // Default to pentest rounds only
         }
         
         const response = await fetchPage<ApiResponse<FindingFeature>>(
