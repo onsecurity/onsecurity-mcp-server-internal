@@ -65,8 +65,16 @@ export async function fetchPage<T>(
   // Add includes if provided
   if (includes) queryParams.append('include', includes);
   
-  // Add fields if provided
-  if (fields) queryParams.append('fields', fields);
+  // Add fields if provided, but remove problematic end_date field for rounds
+  if (fields) {
+    if (basePath === 'rounds' && fields.includes('end_date')) {
+      console.warn(`Warning: 'end_date' field removed from request as it causes 500 errors due to corrupted data. Use start_date instead.`);
+      const cleanFields = fields.split(',').filter(field => field.trim() !== 'end_date').join(',');
+      queryParams.append('fields', cleanFields);
+    } else {
+      queryParams.append('fields', fields);
+    }
+  }
   
   // Add search if provided
   if (search) queryParams.append('search', search);
