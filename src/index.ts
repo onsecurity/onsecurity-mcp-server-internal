@@ -1276,26 +1276,25 @@ server.tool(
             "",
             ...Object.entries(logsByDate).map(([date, logs]: any) => {
                 const totalTime = logs.reduce((sum: number, log: PlatformTimeLog) => {
-                    // Handle time_logged which could be object with hours/minutes or just number
-                    const timeValue = typeof log.time_logged === 'object' 
-                        ? (log.time_logged.hours || 0) + (log.time_logged.minutes || 0) / 60
-                        : log.time_logged || 0;
+                    // Handle time_logged object with time and period
+                    const timeValue = log.time_logged?.time || 0;
                     return sum + timeValue;
                 }, 0);
                 
                 return [
                     `## ${date} (${totalTime.toFixed(1)} hours total)`,
                     ...logs.map((log: PlatformTimeLog) => {
-                        const timeValue = typeof log.time_logged === 'object' 
-                            ? `${log.time_logged.hours || 0}h ${log.time_logged.minutes || 0}m`
-                            : `${log.time_logged || 0}h`;
+                        const timeValue = log.time_logged?.time || 0;
+                        const period = log.time_logged?.period || 'hour';
+                        const timeDisplay = `${timeValue}${period === 'hour' ? 'h' : 'm'}`;
                         
                         return [
                             `### Time Entry #${log.id}`,
-                            `- **Time**: ${timeValue}`,
+                            `- **Time**: ${timeDisplay}`,
                             `- **Round**: ${log.round_id}`,
                             `- **User**: ${log.user_id}`,
                             `- **Client**: ${log.client_id}`,
+                            log.notes ? `- **Notes**: ${log.notes}` : '',
                             log.description ? `- **Description**: ${log.description}` : '',
                             ''
                         ].filter(Boolean).join('\n');

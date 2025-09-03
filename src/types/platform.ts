@@ -110,9 +110,13 @@ export interface PlatformTimeLog {
     user_id: number;
     client_id?: number;
     date: string;
-    hours: number;
-    minutes: number;
-    time_logged?: number | { hours?: number; minutes?: number };
+    hours?: number;
+    minutes?: number;
+    time_logged: {
+        time: number;
+        period: string;
+    };
+    notes?: string;
     description?: string;
     created_at: string;
     updated_at: string;
