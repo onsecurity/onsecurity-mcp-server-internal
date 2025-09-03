@@ -51,12 +51,12 @@ export async function fetchPage<T>(
     'hours_estimate-desc', 'created_at-desc', 'updated_at-desc'
   ];
 
-  // Add sort if provided and valid
+  // Add sort if provided, but prevent end_date sorting which causes 500 errors
   if (sort) {
-    if (basePath === 'rounds' && !validRoundsSortFields.includes(sort)) {
-      console.warn(`Warning: '${sort}' is not a valid sort field for rounds. Available sort fields: ${validRoundsSortFields.join(', ')}`);
-      // Use default sort instead
-      queryParams.append('sort', 'id-asc');
+    if (basePath === 'rounds' && (sort === 'end_date-asc' || sort === 'end_date-desc')) {
+      console.warn(`Warning: end_date sorting causes 500 errors due to corrupted data. Using start_date instead.`);
+      const replacement = sort === 'end_date-asc' ? 'start_date-asc' : 'start_date-desc';
+      queryParams.append('sort', replacement);
     } else {
       queryParams.append('sort', sort);
     }
