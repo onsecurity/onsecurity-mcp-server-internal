@@ -65,28 +65,14 @@ export async function fetchPage<T>(
   // Add includes if provided
   if (includes) queryParams.append('include', includes);
   
-  // Add fields if provided, but remove problematic end_date field for rounds
-  if (fields) {
-    if (basePath === 'rounds' && fields.includes('end_date')) {
-      console.warn(`Warning: 'end_date' field removed from request as it causes 500 errors due to corrupted data. Use start_date instead.`);
-      const cleanFields = fields.split(',').filter(field => field.trim() !== 'end_date').join(',');
-      queryParams.append('fields', cleanFields);
-    } else {
-      queryParams.append('fields', fields);
-    }
-  }
+  // Add fields if provided
+  if (fields) queryParams.append('fields', fields);
   
   // Add search if provided
   if (search) queryParams.append('search', search);
   
   // Add filters (convert booleans to 1/0) 
   Object.entries(filters).forEach(([key, value]) => {
-    // end_date is not in the filterable fields list for rounds, even though it's sortable
-    if (basePath === 'rounds' && key === 'end_date') {
-      console.warn(`Warning: 'end_date' is not a valid filter field for rounds (but it can be sorted). Available date filter fields: start_date, join_chat_ends, join_chat_starts, updated_at, created_at, retesting_end_date`);
-      return;
-    }
-    
     const filterValue = typeof value === 'boolean' ? (value ? '1' : '0') : value.toString();
     queryParams.append(`filter[${key}]`, filterValue);
   });

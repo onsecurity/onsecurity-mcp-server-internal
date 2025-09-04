@@ -19,7 +19,7 @@ export function formatRound(round: RoundFeature): string {
         `Client ID: ${round.client_id}`,
         `Round Type: ${round.round_type_id === 1 ? "pentest round" : round.round_type_id === 3 ? "scan round" : round.round_type_id}`,
         `Pod ID: ${round.pod_id || "Not assigned"}`,
-        `Estimated: ${round.estimate.time} ${round.estimate.period}`,
+        `Estimated: ${round.estimate?.time || "N/A"} ${round.estimate?.period || ""}`,
         `Start Date: ${round.start_date || "Unknown"}`,
         `End Date: ${round.end_date || "Unknown"}`,
         `Started: ${round.started}`,
