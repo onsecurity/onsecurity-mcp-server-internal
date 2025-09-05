@@ -64,7 +64,7 @@ server.tool(
         // Add additional filters if provided
         if (params.filters) {
             Object.entries(params.filters).forEach(([key, value]) => {
-                filters[key] = typeof value === 'boolean' ? (value ? 1 : 0) : value;
+                filters[key] = typeof value === 'boolean' ? (value ? 1 : 0) : value as string | number;
             });
         }
         
@@ -142,7 +142,7 @@ server.tool(
         // Add additional filters if provided
         if (params.filters) {
             Object.entries(params.filters).forEach(([key, value]) => {
-                filters[key] = typeof value === 'boolean' ? (value ? 1 : 0) : value;
+                filters[key] = typeof value === 'boolean' ? (value ? 1 : 0) : value as string | number;
             });
         }
         
@@ -224,7 +224,7 @@ server.tool(
         // Add additional filters if provided
         if (params.filters) {
             Object.entries(params.filters).forEach(([key, value]) => {
-                filters[key] = typeof value === 'boolean' ? (value ? 1 : 0) : value;
+                filters[key] = typeof value === 'boolean' ? (value ? 1 : 0) : value as string | number;
             });
         }
         
@@ -293,7 +293,7 @@ server.tool(
         // Add additional filters if provided
         if (params.filters) {
             Object.entries(params.filters).forEach(([key, value]) => {
-                filters[key] = typeof value === 'boolean' ? (value ? 1 : 0) : value;
+                filters[key] = typeof value === 'boolean' ? (value ? 1 : 0) : value as string | number;
             });
         }
         
@@ -364,7 +364,7 @@ server.tool(
         // Add additional filters if provided
         if (params.filters) {
             Object.entries(params.filters).forEach(([key, value]) => {
-                filters[key] = typeof value === 'boolean' ? (value ? 1 : 0) : value;
+                filters[key] = typeof value === 'boolean' ? (value ? 1 : 0) : value as string | number;
             });
         }
         
