@@ -20,7 +20,7 @@ import {
     extractTeamInfo,
     extractTimeData
 } from './utils/index.js';
-import { FilterSchema, TASK_TYPE_NAMES } from './config/constants.js';
+import { FilterSchema, TASK_TYPE_NAMES, PROHIBITED_FILTER_KEYS } from './config/constants.js';
 
 // Get environment variables
 const ONSECURITY_API_BASE = process.env.ONSECURITY_API_BASE;
@@ -28,6 +28,19 @@ const ONSECURITY_API_TOKEN = process.env.ONSECURITY_API_TOKEN;
 
 // Export types for backward compatibility (temporary)
 export type * from './types/index.js';
+
+// Validate filters to prevent date-based filtering that causes API errors
+function validateFilters(filters: Record<string, any>) {
+    const prohibitedKeys = Object.keys(filters).filter(key => 
+        PROHIBITED_FILTER_KEYS.includes(key) || 
+        key.includes('date') || 
+        key.includes('_at')
+    );
+    
+    if (prohibitedKeys.length > 0) {
+        throw new Error(`Date-based filters are not allowed: ${prohibitedKeys.join(', ')}. Use sort parameter instead (e.g., sort: "date-desc")`);
+    }
+}
 
 // Initialize MCP server
 const server = new McpServer(
@@ -63,6 +76,7 @@ server.tool(
         
         // Add additional filters if provided
         if (params.filters) {
+            validateFilters(params.filters);
             Object.entries(params.filters).forEach(([key, value]) => {
                 filters[key] = typeof value === 'boolean' ? (value ? 1 : 0) : value as string | number;
             });
@@ -141,6 +155,7 @@ server.tool(
         
         // Add additional filters if provided
         if (params.filters) {
+            validateFilters(params.filters);
             Object.entries(params.filters).forEach(([key, value]) => {
                 filters[key] = typeof value === 'boolean' ? (value ? 1 : 0) : value as string | number;
             });
@@ -223,6 +238,7 @@ server.tool(
         
         // Add additional filters if provided
         if (params.filters) {
+            validateFilters(params.filters);
             Object.entries(params.filters).forEach(([key, value]) => {
                 filters[key] = typeof value === 'boolean' ? (value ? 1 : 0) : value as string | number;
             });
@@ -292,6 +308,7 @@ server.tool(
         
         // Add additional filters if provided
         if (params.filters) {
+            validateFilters(params.filters);
             Object.entries(params.filters).forEach(([key, value]) => {
                 filters[key] = typeof value === 'boolean' ? (value ? 1 : 0) : value as string | number;
             });
@@ -363,6 +380,7 @@ server.tool(
         
         // Add additional filters if provided
         if (params.filters) {
+            validateFilters(params.filters);
             Object.entries(params.filters).forEach(([key, value]) => {
                 filters[key] = typeof value === 'boolean' ? (value ? 1 : 0) : value as string | number;
             });
@@ -1216,8 +1234,7 @@ server.tool(
         round_id: z.number().optional().describe("Filter by specific round ID"),
         user_id: z.number().optional().describe("Filter by specific user ID"),
         client_id: z.number().optional().describe("Filter by specific client ID"),
-        date_from: z.string().optional().describe("Filter time logs from this date (YYYY-MM-DD format)"),
-        date_to: z.string().optional().describe("Filter time logs up to this date (YYYY-MM-DD format)"),
+        // Date filtering removed - causes API errors. Use sort parameter instead.
         sort: z.string().optional().describe("Sort parameter: id-asc, round_id-asc, user_id-asc, client_id-asc, date-asc, id-desc, round_id-desc, user_id-desc, client_id-desc, date-desc"),
         limit: z.number().optional().describe("Max results per page (e.g. 50)"),
         page: z.number().optional().describe("Page number (default: 1)"),
@@ -1239,13 +1256,8 @@ server.tool(
             filters['client_id-eq'] = params.client_id;
         }
         
-        if (params.date_from) {
-            filters['date-mte'] = params.date_from;
-        }
-        
-        if (params.date_to) {
-            filters['date-lte'] = params.date_to;
-        }
+        // Note: Date filtering removed as it causes API errors
+        // Use sorting by date instead: sort: "date-asc" or "date-desc"
         
         const response = await fetchPage<ApiResponse<PlatformTimeLog>>(
             'time-logs',
